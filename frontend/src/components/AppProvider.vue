@@ -1,0 +1,44 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { NConfigProvider, NMessageProvider, NDialogProvider, NNotificationProvider, NGlobalStyle, darkTheme } from 'naive-ui'
+import { lightThemeOverrides, darkThemeOverrides } from '@/theme'
+import { zhCN, dateZhCN, enUS, dateEnUS } from 'naive-ui'
+import { useAppStore } from '@/stores/app'
+import { useI18n } from 'vue-i18n'
+
+const appStore = useAppStore()
+const { locale } = useI18n()
+
+// Theme Configuration
+const theme = computed(() => appStore.theme === 'dark' ? darkTheme : null)
+const themeOverrides = computed(() => appStore.theme === 'dark' ? darkThemeOverrides : lightThemeOverrides)
+
+// Locale Configuration
+const naiveLocale = computed(() => appStore.locale === 'zh-CN' ? zhCN : enUS)
+const naiveDateLocale = computed(() => appStore.locale === 'zh-CN' ? dateZhCN : dateEnUS)
+
+// Watch for locale changes to update vue-i18n
+appStore.$subscribe((mutation, state) => {
+  if (state.locale !== locale.value) {
+    locale.value = state.locale
+  }
+})
+</script>
+
+<template>
+  <n-config-provider
+    :theme="theme"
+    :theme-overrides="themeOverrides"
+    :locale="naiveLocale"
+    :date-locale="naiveDateLocale"
+  >
+    <n-global-style />
+    <n-notification-provider>
+      <n-message-provider>
+        <n-dialog-provider>
+          <slot />
+        </n-dialog-provider>
+      </n-message-provider>
+    </n-notification-provider>
+  </n-config-provider>
+</template>

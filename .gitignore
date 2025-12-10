@@ -1,0 +1,35 @@
+# Ignore generated files and directories
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+UserAgents.md
+.works
+.claude
+.serena
+.copal
+# Go
+/bin/
+/pkg/
+/vendor/
+*.exe
+*.test
+*.out
+*.log
+*.prof
+build/
+
+# Vue / Node
+node_modules/
+dist/
+.env
+.env.*
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.DS_Store
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+

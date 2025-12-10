@@ -1,0 +1,14 @@
+{
+  "name": "freelance-flow",
+  "version": "1.0.0",
+  "author": {
+    "name": "Roy",
+    "email": "roy@example.com"
+  },
+  "frontend:install": "bun install",
+  "frontend:build": "bun run build",
+  "frontend:dev:watcher": "bun run dev",
+  "frontend:dev:serverUrl": "http://localhost:5173",
+  "wailsjsdir": "./frontend/src",
+  "outputfilename": "freelance-flow"
+}

@@ -1,0 +1,200 @@
+<script setup lang="ts">
+import { h, onMounted, ref } from 'vue'
+import { 
+  NButton, NDataTable, NTag, NSpace, NProgress, NText, type DataTableColumns, 
+  useMessage, useDialog 
+} from 'naive-ui'
+import PageContainer from '@/components/PageContainer.vue'
+import ProjectFormModal from '@/components/ProjectFormModal.vue'
+import { useProjectStore } from '@/stores/projects'
+import { useClientStore } from '@/stores/clients'
+import { storeToRefs } from 'pinia'
+import type { Project } from '@/types'
+import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOpenOutlined } from '@vicons/antd'
+
+const message = useMessage()
+const dialog = useDialog()
+const projectStore = useProjectStore()
+const clientStore = useClientStore()
+const { projects, loading } = storeToRefs(projectStore)
+const { clients } = storeToRefs(clientStore)
+
+const showModal = ref(false)
+const editingProject = ref<Project | null>(null)
+
+function handleNewProject() {
+  editingProject.value = null
+  showModal.value = true
+}
+
+function handleEditProject(project: Project) {
+  editingProject.value = project
+  showModal.value = true
+}
+
+function handleDeleteProject(project: Project) {
+  dialog.warning({
+    title: 'Delete Project',
+    content: `Are you sure you want to delete "${project.name}"?`,
+    positiveText: 'Delete',
+    negativeText: 'Cancel',
+    onPositiveClick: async () => {
+      try {
+        await projectStore.deleteProject(project.id)
+        message.success('Project deleted successfully')
+      } catch (error) {
+        message.error('Failed to delete project')
+      }
+    }
+  })
+}
+
+async function handleSubmitProject(project: Omit<Project, 'id'> | Project) {
+  try {
+    if ('id' in project) {
+      await projectStore.updateProject(project)
+      message.success('Project updated successfully')
+    } else {
+      await projectStore.createProject(project)
+      message.success('Project created successfully')
+    }
+  } catch (error) {
+    message.error('Failed to save project')
+  }
+}
+
+onMounted(() => {
+  projectStore.fetchProjects()
+  clientStore.fetchClients()
+})
+
+const columns: DataTableColumns<Project> = [
+  {
+    title: 'Project Name',
+    key: 'name',
+    width: 250,
+    render(row) {
+      return h('div', [
+        h('div', { style: 'font-weight: 600;' }, row.name),
+        h(NText, { depth: 3, style: 'font-size: 12px;' }, { default: () => row.description || '-' })
+      ])
+    }
+  },
+  {
+    title: 'Status',
+    key: 'status',
+    width: 120,
+    render(row) {
+      let type: 'success' | 'warning' | 'default' = 'default'
+      if (row.status === 'active') type = 'success'
+      if (row.status === 'archived') type = 'warning'
+      
+      return h(
+        NTag,
+        { type, bordered: false, round: true, size: 'small' },
+        { default: () => row.status.charAt(0).toUpperCase() + row.status.slice(1) }
+      )
+    }
+  },
+  {
+    title: 'Progress',
+    key: 'progress', // Mock progress for UI demo
+    render() {
+      const randomProgress = Math.floor(Math.random() * 40) + 30
+      return h(
+        NProgress,
+        {
+          type: 'line',
+          percentage: randomProgress,
+          color: 'var(--n-primary-color)',
+          height: 6,
+          'show-indicator': false
+        }
+      )
+    }
+  },
+  {
+    title: 'Deadline',
+    key: 'deadline',
+    render(row) {
+      return row.deadline || 'No Deadline'
+    }
+  },
+  {
+    title: 'Hourly Rate',
+    key: 'hourlyRate',
+    render(row) {
+      return h(NText, { depth: 1 }, { default: () => `${row.currency} $${row.hourlyRate}/hr` })
+    }
+  },
+  {
+    title: 'Actions',
+    key: 'actions',
+    width: 140,
+    render(row) {
+      return h(NSpace, { size: 'small' }, {
+        default: () => [
+          h(
+            NButton,
+            {
+              size: 'small',
+              quaternary: true,
+              circle: true,
+              onClick: () => message.info(`Managing ${row.name}`)
+            },
+            { icon: () => h(FolderOpenOutlined) }
+          ),
+          h(
+            NButton,
+            {
+              size: 'small',
+              quaternary: true,
+              circle: true,
+              onClick: () => handleEditProject(row)
+            },
+            { icon: () => h(EditOutlined) }
+          )
+        ]
+      })
+    }
+  }
+]
+</script>
+
+<template>
+  <PageContainer 
+    title="Projects" 
+    subtitle="Track ongoing work and milestones"
+  >
+    <template #extra>
+      <n-button type="primary" @click="handleNewProject">
+        <template #icon>
+          <n-icon><PlusOutlined /></n-icon>
+        </template>
+        New Project
+      </n-button>
+    </template>
+
+    <ProjectFormModal 
+      v-model:show="showModal" 
+      :project="editingProject" 
+      :clients="clients"
+      @submit="handleSubmitProject" 
+    />
+
+    <n-data-table
+      :columns="columns"
+      :data="projects"
+      :loading="loading"
+      :bordered="false"
+      class="project-table"
+    />
+  </PageContainer>
+</template>
+
+<style scoped>
+.project-table :deep(.n-data-table-th) {
+  font-weight: 600;
+  color: var(--n-text-color-2);
+}
+</style>

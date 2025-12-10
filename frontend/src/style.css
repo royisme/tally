@@ -1,0 +1,27 @@
+/* Global Styles */
+:root {
+  font-family: "Inter", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  min-width: 1024px; /* Desktop Application Minimum Width */
+  min-height: 100vh;
+  /* background-color handled by NConfigProvider / Theme */
+  background-color: transparent; 
+  color: var(--n-text-color);
+  overflow-x: auto; /* Horizontal scroll if window is too small */
+}
+
+#app {
+  width: 100%;
+}

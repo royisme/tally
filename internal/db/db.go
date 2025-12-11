@@ -27,8 +27,13 @@ func Init() *sql.DB {
 		log.Fatal(err)
 	}
 
-	createTables(db)
-	runMigrations(db)
+	// Try to run golang-migrate first
+	if err := RunMigrations(db); err != nil {
+		log.Printf("golang-migrate failed, falling back to legacy migrations: %v", err)
+		// Fallback to legacy table creation and migrations for existing DBs
+		createTables(db)
+		runLegacyMigrations(db)
+	}
 
 	return db
 }
@@ -115,8 +120,9 @@ func createTables(db *sql.DB) {
 	}
 }
 
-// runMigrations handles database schema migrations for existing databases.
-func runMigrations(db *sql.DB) {
+// runLegacyMigrations handles database schema migrations for existing databases.
+// This is kept for backward compatibility with databases created before golang-migrate.
+func runLegacyMigrations(db *sql.DB) {
 	// Migration: Add billable column to time_entries if not exists
 	// SQLite doesn't support IF NOT EXISTS for columns, so we check first
 	addColumnIfNotExists(db, "time_entries", "billable", "BOOLEAN DEFAULT 1")

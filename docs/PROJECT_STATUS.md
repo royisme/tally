@@ -13,6 +13,7 @@
 | **Projects**   | ✅ Done    | Project tracking associated with clients.                  |
 | **Timesheets** | ✅ Done    | Time entry logging and management.                         |
 | **Invoices**   | ✅ Done    | Invoice generation based on timesheets/projects.           |
+| **Multi-User** | ✅ Done    | Authentication, data isolation, multi-profile support.     |
 | **Reports**    | 🚧 Planned | Performance analytics (Phase 2).                           |
 | **Dashboard**  | ✅ Done    | Overview of key metrics (Active Projects, Earnings, etc.). |
 
@@ -30,6 +31,7 @@
 - [x] Basic CRUD for core entities (Clients, Projects, Timesheets).
 - [x] Invoice generation.
 - [x] Local SQLite persistence.
+- [x] Multi-User Support (Auth, Data Isolation).
 
 ### Phase 2: Analytics & Polish
 

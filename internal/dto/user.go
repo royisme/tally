@@ -2,10 +2,11 @@ package dto
 
 // RegisterInput represents the input for user registration.
 type RegisterInput struct {
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	Email     string `json:"email"`
-	AvatarURL string `json:"avatarUrl"`
+	Username     string `json:"username"`
+	Password     string `json:"password"`
+	Email        string `json:"email"`
+	AvatarURL    string `json:"avatarUrl"`
+	SettingsJSON string `json:"settingsJson"`
 }
 
 // LoginInput represents the input for user login.

@@ -73,10 +73,16 @@ func (s *AuthService) Register(input dto.RegisterInput) (dto.UserOutput, error) 
 	// Generate UUID for future cloud sync
 	userUUID := uuid.New().String()
 
+	// Default settings if empty
+	settingsJSON := input.SettingsJSON
+	if settingsJSON == "" {
+		settingsJSON = "{}"
+	}
+
 	// Insert user
 	stmt, err := s.db.Prepare(`
-		INSERT INTO users(uuid, username, password_hash, email, avatar_url, created_at, last_login)
-		VALUES(?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users(uuid, username, password_hash, email, avatar_url, settings_json, created_at, last_login)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		log.Println("Error preparing insert:", err)
@@ -85,7 +91,7 @@ func (s *AuthService) Register(input dto.RegisterInput) (dto.UserOutput, error) 
 	defer stmt.Close()
 
 	now := time.Now()
-	res, err := stmt.Exec(userUUID, input.Username, passwordHash, input.Email, input.AvatarURL, now.Format(time.RFC3339), now.Format(time.RFC3339))
+	res, err := stmt.Exec(userUUID, input.Username, passwordHash, input.Email, input.AvatarURL, settingsJSON, now.Format(time.RFC3339), now.Format(time.RFC3339))
 	if err != nil {
 		log.Println("Error inserting user:", err)
 		return dto.UserOutput{}, err
@@ -100,7 +106,7 @@ func (s *AuthService) Register(input dto.RegisterInput) (dto.UserOutput, error) 
 		AvatarURL:    input.AvatarURL,
 		CreatedAt:    now,
 		LastLogin:    now,
-		SettingsJSON: "{}",
+		SettingsJSON: settingsJSON,
 	}
 
 	return mapper.ToUserOutput(user), nil

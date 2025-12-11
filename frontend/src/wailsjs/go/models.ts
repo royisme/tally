@@ -247,6 +247,20 @@ export namespace dto {
 		    return a;
 		}
 	}
+	export class LoginInput {
+	    username: string;
+	    password: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LoginInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.username = source["username"];
+	        this.password = source["password"];
+	    }
+	}
 	export class ProjectOutput {
 	    id: number;
 	    clientId: number;
@@ -273,6 +287,26 @@ export namespace dto {
 	        this.status = source["status"];
 	        this.deadline = source["deadline"];
 	        this.tags = source["tags"];
+	    }
+	}
+	export class RegisterInput {
+	    username: string;
+	    password: string;
+	    email: string;
+	    avatarUrl: string;
+	    settingsJson: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RegisterInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.username = source["username"];
+	        this.password = source["password"];
+	        this.email = source["email"];
+	        this.avatarUrl = source["avatarUrl"];
+	        this.settingsJson = source["settingsJson"];
 	    }
 	}
 	export class TimeEntryOutput {
@@ -437,6 +471,48 @@ export namespace dto {
 	        this.description = source["description"];
 	        this.billable = source["billable"];
 	        this.invoiced = source["invoiced"];
+	    }
+	}
+	export class UserListItem {
+	    id: number;
+	    username: string;
+	    avatarUrl: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UserListItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.username = source["username"];
+	        this.avatarUrl = source["avatarUrl"];
+	    }
+	}
+	export class UserOutput {
+	    id: number;
+	    uuid: string;
+	    username: string;
+	    email: string;
+	    avatarUrl: string;
+	    createdAt: string;
+	    lastLogin: string;
+	    settingsJson: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UserOutput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.uuid = source["uuid"];
+	        this.username = source["username"];
+	        this.email = source["email"];
+	        this.avatarUrl = source["avatarUrl"];
+	        this.createdAt = source["createdAt"];
+	        this.lastLogin = source["lastLogin"];
+	        this.settingsJson = source["settingsJson"];
 	    }
 	}
 

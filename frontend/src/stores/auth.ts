@@ -1,77 +1,18 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import type {
-  UserOutput,
-  UserListItem,
-  RegisterInput,
-  LoginInput,
-} from "@/types";
-
-// TODO: When Wails bindings are generated, use real AuthService
-// const isWailsRuntime = typeof window !== "undefined" && "go" in window;
-
-// Mock auth service for development
-const mockAuthService = {
-  register: async (input: RegisterInput): Promise<UserOutput> => {
-    const mockUser: UserOutput = {
-      id: 1,
-      uuid: "mock-uuid-" + Date.now(),
-      username: input.username,
-      email: input.email || "",
-      avatarUrl:
-        input.avatarUrl ||
-        `https://api.dicebear.com/9.x/avataaars/svg?seed=${input.username}`,
-      createdAt: new Date().toISOString(),
-      lastLogin: new Date().toISOString(),
-      settingsJson: "{}",
-    };
-    // Simulate storage
-    const users = JSON.parse(localStorage.getItem("mockUsers") || "[]");
-    users.push({ ...mockUser, passwordHash: input.password }); // Store password for mock login
-    localStorage.setItem("mockUsers", JSON.stringify(users));
-    return mockUser;
-  },
-  login: async (input: LoginInput): Promise<UserOutput> => {
-    const users = JSON.parse(localStorage.getItem("mockUsers") || "[]");
-    const user = users.find(
-      (u: { username: string; passwordHash: string }) =>
-        u.username === input.username && u.passwordHash === input.password
-    );
-    if (!user) {
-      throw new Error("Invalid credentials");
-    }
-    return user as UserOutput;
-  },
-  getAllUsers: async (): Promise<UserListItem[]> => {
-    const users = JSON.parse(localStorage.getItem("mockUsers") || "[]");
-    return users.map((u: UserOutput) => ({
-      id: u.id,
-      username: u.username,
-      avatarUrl: u.avatarUrl,
-    }));
-  },
-  hasUsers: async (): Promise<boolean> => {
-    const users = JSON.parse(localStorage.getItem("mockUsers") || "[]");
-    return users.length > 0;
-  },
-  getUserById: async (id: number): Promise<UserOutput> => {
-    const users = JSON.parse(localStorage.getItem("mockUsers") || "[]");
-    const user = users.find((u: UserOutput) => u.id === id);
-    if (!user) {
-      throw new Error("User not found");
-    }
-    return user;
-  },
-};
-
-// Auth service that will be used (mock or Wails)
-// When Wails bindings are generated, this will use real backend
-const authService = mockAuthService;
+import {
+  Login,
+  Register,
+  GetAllUsers,
+  GetUserByID,
+  HasUsers,
+} from "../wailsjs/go/services/AuthService";
+import { dto } from "../wailsjs/go/models";
 
 export const useAuthStore = defineStore("auth", () => {
   // State
-  const currentUser = ref<UserOutput | null>(null);
-  const usersList = ref<UserListItem[]>([]);
+  const currentUser = ref<dto.UserOutput | null>(null);
+  const usersList = ref<dto.UserListItem[]>([]);
   const isInitialized = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
@@ -87,18 +28,21 @@ export const useAuthStore = defineStore("auth", () => {
     isLoading.value = true;
     error.value = null;
     try {
-      // Check if users exist
-      const hasExistingUsers = await authService.hasUsers();
+      // Check if users exist and fetch them
+      const hasExistingUsers = await HasUsers();
       if (hasExistingUsers) {
-        usersList.value = await authService.getAllUsers();
+        usersList.value = await GetAllUsers();
       }
 
       // Try to restore session from localStorage
       const savedUserId = localStorage.getItem("currentUserId");
       if (savedUserId && hasExistingUsers) {
         try {
-          const user = await authService.getUserById(parseInt(savedUserId, 10));
-          currentUser.value = user;
+          const id = parseInt(savedUserId, 10);
+          if (!isNaN(id)) {
+            const user = await GetUserByID(id);
+            currentUser.value = user;
+          }
         } catch {
           // Session invalid, clear it
           localStorage.removeItem("currentUserId");
@@ -109,19 +53,20 @@ export const useAuthStore = defineStore("auth", () => {
     } catch (e) {
       error.value =
         e instanceof Error ? e.message : "Failed to initialize auth";
+      console.error(e);
     } finally {
       isLoading.value = false;
     }
   }
 
-  async function register(input: RegisterInput) {
+  async function register(input: dto.RegisterInput) {
     isLoading.value = true;
     error.value = null;
     try {
-      const user = await authService.register(input);
+      const user = await Register(input);
       currentUser.value = user;
       localStorage.setItem("currentUserId", String(user.id));
-      usersList.value = await authService.getAllUsers();
+      usersList.value = await GetAllUsers(); // Refresh list including new user
       return user;
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Registration failed";
@@ -131,15 +76,17 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
-  async function login(input: LoginInput) {
+  async function login(input: dto.LoginInput) {
     isLoading.value = true;
     error.value = null;
     try {
-      const user = await authService.login(input);
+      const user = await Login(input);
       currentUser.value = user;
       localStorage.setItem("currentUserId", String(user.id));
       return user;
     } catch (e) {
+      // Clean up local state on failure just in case
+      currentUser.value = null;
       error.value = e instanceof Error ? e.message : "Login failed";
       throw e;
     } finally {
@@ -149,7 +96,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   async function fetchAllUsers() {
     try {
-      usersList.value = await authService.getAllUsers();
+      usersList.value = await GetAllUsers();
     } catch (e) {
       console.error("Failed to fetch users:", e);
     }
@@ -161,7 +108,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   function switchUser() {
-    // Clear current session but keep users list
+    // Clear current session but keep users list (logic is same as logout basically)
     currentUser.value = null;
     localStorage.removeItem("currentUserId");
   }

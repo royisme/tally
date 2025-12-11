@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { 
-  NButton, NAvatar, NInput, NIcon, NText, 
-  NForm, NFormItem, NTooltip, NSelect 
+import {
+  NButton, NAvatar, NInput, NIcon, NText,
+  NForm, NFormItem, NTooltip, NSelect
 } from 'naive-ui'
-import { 
-  UserOutlined, LockOutlined, MailOutlined, 
-  ReloadOutlined, ArrowLeftOutlined 
+import {
+  UserOutlined, LockOutlined, MailOutlined,
+  ReloadOutlined, ArrowLeftOutlined
 } from '@vicons/antd'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
@@ -70,9 +70,9 @@ const avatarUrl = computed(() => {
 // Validation
 const passwordsMatch = computed(() => password.value === confirmPassword.value)
 const isFormValid = computed(() => {
-  return username.value.length >= 3 && 
-         password.value.length >= 4 && 
-         passwordsMatch.value
+  return username.value.length >= 3 &&
+    password.value.length >= 4 &&
+    passwordsMatch.value
 })
 
 // Regenerate avatar with new random seed
@@ -93,10 +93,10 @@ watch(selectedLanguage, (newLang) => {
 
 async function handleRegister() {
   if (!isFormValid.value) return
-  
+
   isRegistering.value = true
   registerError.value = null
-  
+
   try {
     // Build settings JSON
     const settings = {
@@ -105,18 +105,18 @@ async function handleRegister() {
       province: selectedProvince.value,
       theme: appStore.theme,
     }
-    
+
     await authStore.register({
       username: username.value,
       password: password.value,
-      email: email.value || undefined,
+      email: email.value || "",
       avatarUrl: avatarUrl.value,
-      // Note: settingsJson will be passed to backend when Wails bindings are ready
+      settingsJson: JSON.stringify(settings),
     })
-    
+
     // Store settings in localStorage for now (until backend integration)
     localStorage.setItem('userSettings', JSON.stringify(settings))
-    
+
     router.push('/dashboard')
   } catch (e) {
     registerError.value = e instanceof Error ? e.message : t('auth.registerFailed')
@@ -138,145 +138,105 @@ function goBack() {
   <div class="register-container">
     <div class="register-card">
       <!-- Back Button -->
-      <n-button 
-        v-if="authStore.usersList.length > 0"
-        class="back-button" 
-        quaternary 
-        circle
-        @click="goBack"
-      >
+      <n-button v-if="authStore.usersList.length > 0" class="back-button" quaternary circle @click="goBack">
         <template #icon>
-          <n-icon><ArrowLeftOutlined /></n-icon>
+          <n-icon>
+            <ArrowLeftOutlined />
+          </n-icon>
         </template>
       </n-button>
-      
+
       <h1 class="register-title">{{ t('auth.createAccount') }}</h1>
       <p class="register-subtitle">{{ t('auth.setupProfile') }}</p>
-      
+
       <!-- Avatar Preview -->
       <div class="avatar-section">
-        <n-avatar
-          :size="120"
-          :src="avatarUrl"
-          class="avatar-preview"
-        />
+        <n-avatar :size="120" :src="avatarUrl" class="avatar-preview" />
         <n-tooltip trigger="hover">
           <template #trigger>
-            <n-button 
-              circle 
-              class="refresh-avatar"
-              @click="regenerateAvatar"
-            >
+            <n-button circle class="refresh-avatar" @click="regenerateAvatar">
               <template #icon>
-                <n-icon><ReloadOutlined /></n-icon>
+                <n-icon>
+                  <ReloadOutlined />
+                </n-icon>
               </template>
             </n-button>
           </template>
           {{ t('auth.regenerateAvatar') }}
         </n-tooltip>
       </div>
-      
+
       <!-- Registration Form -->
       <n-form class="register-form">
         <n-form-item :label="t('auth.username')">
-          <n-input
-            v-model:value="username"
-            :placeholder="t('auth.usernamePlaceholder')"
-            size="large"
-          >
+          <n-input v-model:value="username" :placeholder="t('auth.usernamePlaceholder')" size="large">
             <template #prefix>
-              <n-icon><UserOutlined /></n-icon>
+              <n-icon>
+                <UserOutlined />
+              </n-icon>
             </template>
           </n-input>
         </n-form-item>
-        
+
         <n-form-item :label="t('auth.email')" :show-require-mark="false">
-          <n-input
-            v-model:value="email"
-            :placeholder="t('auth.emailPlaceholder')"
-            size="large"
-          >
+          <n-input v-model:value="email" :placeholder="t('auth.emailPlaceholder')" size="large">
             <template #prefix>
-              <n-icon><MailOutlined /></n-icon>
+              <n-icon>
+                <MailOutlined />
+              </n-icon>
             </template>
           </n-input>
         </n-form-item>
-        
+
         <n-form-item :label="t('auth.password')">
-          <n-input
-            v-model:value="password"
-            type="password"
-            :placeholder="t('auth.passwordPlaceholder')"
-            size="large"
-            show-password-on="click"
-          >
+          <n-input v-model:value="password" type="password" :placeholder="t('auth.passwordPlaceholder')" size="large"
+            show-password-on="click">
             <template #prefix>
-              <n-icon><LockOutlined /></n-icon>
+              <n-icon>
+                <LockOutlined />
+              </n-icon>
             </template>
           </n-input>
         </n-form-item>
-        
+
         <n-form-item :label="t('auth.confirmPassword')">
-          <n-input
-            v-model:value="confirmPassword"
-            type="password"
-            :placeholder="t('auth.confirmPasswordPlaceholder')"
-            size="large"
-            show-password-on="click"
-            :status="confirmPassword && !passwordsMatch ? 'error' : undefined"
-          >
+          <n-input v-model:value="confirmPassword" type="password" :placeholder="t('auth.confirmPasswordPlaceholder')"
+            size="large" show-password-on="click" :status="confirmPassword && !passwordsMatch ? 'error' : undefined">
             <template #prefix>
-              <n-icon><LockOutlined /></n-icon>
+              <n-icon>
+                <LockOutlined />
+              </n-icon>
             </template>
           </n-input>
         </n-form-item>
-        
+
         <n-text v-if="confirmPassword && !passwordsMatch" type="error" class="error-text">
           {{ t('auth.passwordsNotMatch') }}
         </n-text>
-        
+
         <!-- Financial Preferences Section -->
         <div class="preferences-section">
           <p class="section-title">{{ t('auth.financialPreferences') }}</p>
-          
+
           <n-form-item :label="t('auth.language')">
-            <n-select
-              v-model:value="selectedLanguage"
-              :options="languageOptions"
-              size="large"
-            />
+            <n-select v-model:value="selectedLanguage" :options="languageOptions" size="large" />
           </n-form-item>
-          
+
           <n-form-item :label="t('auth.currency')">
-            <n-select
-              v-model:value="selectedCurrency"
-              :options="currencyOptions"
-              size="large"
-            />
+            <n-select v-model:value="selectedCurrency" :options="currencyOptions" size="large" />
           </n-form-item>
-          
+
           <n-form-item :label="t('auth.province')">
-            <n-select
-              v-model:value="selectedProvince"
-              :options="provinceOptions"
-              size="large"
-            />
+            <n-select v-model:value="selectedProvince" :options="provinceOptions" size="large" />
           </n-form-item>
         </div>
-        
+
         <n-text v-if="registerError" type="error" class="error-text">
           {{ registerError }}
         </n-text>
-        
-        <n-button
-          type="primary"
-          size="large"
-          block
-          :loading="isRegistering"
-          :disabled="!isFormValid"
-          class="submit-button"
-          @click="handleRegister"
-        >
+
+        <n-button type="primary" size="large" block :loading="isRegistering" :disabled="!isFormValid"
+          class="submit-button" @click="handleRegister">
           {{ t('auth.createProfile') }}
         </n-button>
       </n-form>

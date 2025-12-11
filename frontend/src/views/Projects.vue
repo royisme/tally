@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { h, onMounted, ref } from 'vue'
-import { 
-  NButton, NDataTable, NTag, NSpace, NProgress, NText, type DataTableColumns, 
-  useMessage, useDialog 
+import {
+  NButton, NDataTable, NTag, NSpace, NProgress, NText, type DataTableColumns,
+  useMessage, useDialog
 } from 'naive-ui'
 import PageContainer from '@/components/PageContainer.vue'
 import ProjectFormModal from '@/components/ProjectFormModal.vue'
 import { useProjectStore } from '@/stores/projects'
 import { useClientStore } from '@/stores/clients'
 import { storeToRefs } from 'pinia'
+import { useI18n } from 'vue-i18n'
 import type { Project } from '@/types'
 import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOpenOutlined } from '@vicons/antd'
 
@@ -18,6 +19,7 @@ const projectStore = useProjectStore()
 const clientStore = useClientStore()
 const { projects, loading } = storeToRefs(projectStore)
 const { clients } = storeToRefs(clientStore)
+const { t } = useI18n()
 
 const showModal = ref(false)
 const editingProject = ref<Project | null>(null)
@@ -34,16 +36,16 @@ function handleEditProject(project: Project) {
 
 function handleDeleteProject(project: Project) {
   dialog.warning({
-    title: 'Delete Project',
-    content: `Are you sure you want to delete "${project.name}"?`,
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
+    title: t('projects.deleteTitle'),
+    content: t('projects.deleteConfirm', { name: project.name }),
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       try {
         await projectStore.deleteProject(project.id)
-        message.success('Project deleted successfully')
+        message.success(t('projects.deleteSuccess'))
       } catch (error) {
-        message.error('Failed to delete project')
+        message.error(t('projects.deleteError'))
       }
     }
   })
@@ -53,13 +55,13 @@ async function handleSubmitProject(project: Omit<Project, 'id'> | Project) {
   try {
     if ('id' in project) {
       await projectStore.updateProject(project)
-      message.success('Project updated successfully')
+      message.success(t('projects.updateSuccess'))
     } else {
       await projectStore.createProject(project)
-      message.success('Project created successfully')
+      message.success(t('projects.createSuccess'))
     }
   } catch (error) {
-    message.error('Failed to save project')
+    message.error(t('projects.saveError'))
   }
 }
 
@@ -70,7 +72,7 @@ onMounted(() => {
 
 const columns: DataTableColumns<Project> = [
   {
-    title: 'Project Name',
+    title: () => t('projects.columns.projectName'),
     key: 'name',
     width: 250,
     render(row) {
@@ -81,23 +83,23 @@ const columns: DataTableColumns<Project> = [
     }
   },
   {
-    title: 'Status',
+    title: () => t('projects.columns.status'),
     key: 'status',
     width: 120,
     render(row) {
       let type: 'success' | 'warning' | 'default' = 'default'
       if (row.status === 'active') type = 'success'
       if (row.status === 'archived') type = 'warning'
-      
+
       return h(
         NTag,
         { type, bordered: false, round: true, size: 'small' },
-        { default: () => row.status.charAt(0).toUpperCase() + row.status.slice(1) }
+        { default: () => t(`projects.status.${row.status}`) }
       )
     }
   },
   {
-    title: 'Progress',
+    title: () => t('projects.columns.progress'),
     key: 'progress', // Mock progress for UI demo
     render() {
       const randomProgress = Math.floor(Math.random() * 40) + 30
@@ -114,21 +116,21 @@ const columns: DataTableColumns<Project> = [
     }
   },
   {
-    title: 'Deadline',
+    title: () => t('projects.columns.deadline'),
     key: 'deadline',
     render(row) {
-      return row.deadline || 'No Deadline'
+      return row.deadline || t('projects.columns.noDeadline')
     }
   },
   {
-    title: 'Hourly Rate',
+    title: () => t('projects.columns.hourlyRate'),
     key: 'hourlyRate',
     render(row) {
       return h(NText, { depth: 1 }, { default: () => `${row.currency} $${row.hourlyRate}/hr` })
     }
   },
   {
-    title: 'Actions',
+    title: () => t('projects.columns.actions'),
     key: 'actions',
     width: 140,
     render(row) {
@@ -140,7 +142,7 @@ const columns: DataTableColumns<Project> = [
               size: 'small',
               quaternary: true,
               circle: true,
-              onClick: () => message.info(`Managing ${row.name}`)
+              onClick: () => message.info(t('projects.manage', { name: row.name }))
             },
             { icon: () => h(FolderOpenOutlined) }
           ),
@@ -162,33 +164,22 @@ const columns: DataTableColumns<Project> = [
 </script>
 
 <template>
-  <PageContainer 
-    title="Projects" 
-    subtitle="Track ongoing work and milestones"
-  >
+  <PageContainer :title="t('projects.title')" :subtitle="t('projects.subtitle')">
     <template #extra>
       <n-button type="primary" @click="handleNewProject">
         <template #icon>
-          <n-icon><PlusOutlined /></n-icon>
+          <n-icon>
+            <PlusOutlined />
+          </n-icon>
         </template>
-        New Project
+        {{ t('projects.addProject') }}
       </n-button>
     </template>
 
-    <ProjectFormModal 
-      v-model:show="showModal" 
-      :project="editingProject" 
-      :clients="clients"
-      @submit="handleSubmitProject" 
-    />
+    <ProjectFormModal v-model:show="showModal" :project="editingProject" :clients="clients"
+      @submit="handleSubmitProject" />
 
-    <n-data-table
-      :columns="columns"
-      :data="projects"
-      :loading="loading"
-      :bordered="false"
-      class="project-table"
-    />
+    <n-data-table :columns="columns" :data="projects" :loading="loading" :bordered="false" class="project-table" />
   </PageContainer>
 </template>
 

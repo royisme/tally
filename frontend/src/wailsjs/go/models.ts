@@ -157,6 +157,7 @@ export namespace dto {
 	    endTime: string;
 	    durationSeconds: number;
 	    description: string;
+	    billable: boolean;
 	    invoiced: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -171,6 +172,7 @@ export namespace dto {
 	        this.endTime = source["endTime"];
 	        this.durationSeconds = source["durationSeconds"];
 	        this.description = source["description"];
+	        this.billable = source["billable"];
 	        this.invoiced = source["invoiced"];
 	    }
 	}
@@ -281,6 +283,7 @@ export namespace dto {
 	    endTime: string;
 	    durationSeconds: number;
 	    description: string;
+	    billable: boolean;
 	    invoiced: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -296,6 +299,7 @@ export namespace dto {
 	        this.endTime = source["endTime"];
 	        this.durationSeconds = source["durationSeconds"];
 	        this.description = source["description"];
+	        this.billable = source["billable"];
 	        this.invoiced = source["invoiced"];
 	    }
 	}
@@ -415,6 +419,7 @@ export namespace dto {
 	    endTime: string;
 	    durationSeconds: number;
 	    description: string;
+	    billable: boolean;
 	    invoiced: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -430,6 +435,7 @@ export namespace dto {
 	        this.endTime = source["endTime"];
 	        this.durationSeconds = source["durationSeconds"];
 	        this.description = source["description"];
+	        this.billable = source["billable"];
 	        this.invoiced = source["invoiced"];
 	    }
 	}

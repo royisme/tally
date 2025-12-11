@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { NModal, NCard, NForm, NFormItem, NInput, NSelect, NButton, NSpace, useMessage } from 'naive-ui'
 import type { Client } from '@/types'
 import type { FormInst, FormRules } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 
 interface Props {
   show: boolean
@@ -17,6 +18,7 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const message = useMessage()
+const { t } = useI18n()
 
 const formRef = ref<FormInst | null>(null)
 const formValue = ref<Omit<Client, 'id'>>({
@@ -33,14 +35,14 @@ const formValue = ref<Omit<Client, 'id'>>({
 
 const rules: FormRules = {
   name: [
-    { required: true, message: 'Please enter client name', trigger: ['blur', 'input'] }
+    { required: true, message: t('form.validation.required', { field: t('form.client.name') }), trigger: ['blur', 'input'] }
   ],
   email: [
-    { required: true, message: 'Please enter email', trigger: ['blur', 'input'] },
-    { type: 'email', message: 'Please enter valid email', trigger: ['blur', 'input'] }
+    { required: true, message: t('form.validation.required', { field: t('form.client.email') }), trigger: ['blur', 'input'] },
+    { type: 'email', message: t('form.validation.email'), trigger: ['blur', 'input'] }
   ],
   currency: [
-    { required: true, message: 'Please select currency', trigger: ['blur', 'change'] }
+    { required: true, message: t('form.validation.select', { field: t('form.client.currency') }), trigger: ['blur', 'change'] }
   ]
 }
 
@@ -52,8 +54,8 @@ const currencyOptions = [
 ]
 
 const statusOptions = [
-  { label: 'Active', value: 'active' },
-  { label: 'Inactive', value: 'inactive' }
+  { label: t('clients.status.active'), value: 'active' },
+  { label: t('clients.status.inactive'), value: 'inactive' }
 ]
 
 // Watch for client changes to populate form
@@ -102,55 +104,59 @@ function handleSubmit() {
       }
       handleClose()
     } else {
-      message.error('Please fix form errors')
+      message.error(t('form.saveError') || 'Please fix form errors')
     }
   })
 }
 </script>
 
 <template>
-  <n-modal :show="show" @update:show="handleClose" preset="card" :style="{ width: '600px' }" :title="client ? 'Edit Client' : 'New Client'">
-    <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top" require-mark-placement="right-hanging">
-      <n-form-item label="Client Name" path="name">
-        <n-input v-model:value="formValue.name" placeholder="Enter client name" />
+  <n-modal :show="show" @update:show="handleClose" preset="card" :style="{ width: '600px' }"
+    :title="client ? t('clients.editClient') : t('clients.newClient')">
+    <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top"
+      require-mark-placement="right-hanging">
+      <n-form-item :label="t('form.client.name')" path="name">
+        <n-input v-model:value="formValue.name" :placeholder="t('form.client.namePlaceholder')" />
       </n-form-item>
 
-      <n-form-item label="Email" path="email">
-        <n-input v-model:value="formValue.email" placeholder="client@example.com" />
+      <n-form-item :label="t('form.client.email')" path="email">
+        <n-input v-model:value="formValue.email" :placeholder="t('form.client.emailPlaceholder')" />
       </n-form-item>
 
-      <n-form-item label="Contact Person" path="contactPerson">
-        <n-input v-model:value="formValue.contactPerson" placeholder="John Doe" />
+      <n-form-item :label="t('form.client.contactPerson')" path="contactPerson">
+        <n-input v-model:value="formValue.contactPerson" :placeholder="t('form.client.contactPersonPlaceholder')" />
       </n-form-item>
 
-      <n-form-item label="Website" path="website">
-        <n-input v-model:value="formValue.website" placeholder="https://example.com" />
+      <n-form-item :label="t('form.client.website')" path="website">
+        <n-input v-model:value="formValue.website" :placeholder="t('form.client.websitePlaceholder')" />
       </n-form-item>
 
-      <n-form-item label="Address" path="address">
-        <n-input v-model:value="formValue.address" type="textarea" placeholder="Full address" :rows="2" />
+      <n-form-item :label="t('form.client.address')" path="address">
+        <n-input v-model:value="formValue.address" type="textarea" :placeholder="t('form.client.addressPlaceholder')"
+          :rows="2" />
       </n-form-item>
 
       <n-space>
-        <n-form-item label="Currency" path="currency" style="flex: 1;">
+        <n-form-item :label="t('form.client.currency')" path="currency" style="flex: 1;">
           <n-select v-model:value="formValue.currency" :options="currencyOptions" />
         </n-form-item>
 
-        <n-form-item label="Status" path="status" style="flex: 1;">
+        <n-form-item :label="t('form.client.status')" path="status" style="flex: 1;">
           <n-select v-model:value="formValue.status" :options="statusOptions" />
         </n-form-item>
       </n-space>
 
-      <n-form-item label="Notes" path="notes">
-        <n-input v-model:value="formValue.notes" type="textarea" placeholder="Additional notes" :rows="3" />
+      <n-form-item :label="t('form.client.notes')" path="notes">
+        <n-input v-model:value="formValue.notes" type="textarea" :placeholder="t('form.client.notesPlaceholder')"
+          :rows="3" />
       </n-form-item>
     </n-form>
 
     <template #footer>
       <n-space justify="end">
-        <n-button @click="handleClose">Cancel</n-button>
+        <n-button @click="handleClose">{{ t('form.cancel') }}</n-button>
         <n-button type="primary" @click="handleSubmit">
-          {{ client ? 'Update' : 'Create' }}
+          {{ client ? t('form.update') : t('form.create') }}
         </n-button>
       </n-space>
     </template>

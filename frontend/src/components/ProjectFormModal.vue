@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { NModal, NForm, NFormItem, NInput, NInputNumber, NSelect, NDatePicker, NButton, NSpace, NDynamicTags, useMessage } from 'naive-ui'
 import type { Project, Client } from '@/types'
 import type { FormInst, FormRules } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 
 interface Props {
   show: boolean
@@ -18,6 +19,7 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const message = useMessage()
+const { t } = useI18n()
 
 const formRef = ref<FormInst | null>(null)
 const formValue = ref<Omit<Project, 'id'>>({
@@ -32,10 +34,10 @@ const formValue = ref<Omit<Project, 'id'>>({
 })
 
 const rules: FormRules = {
-  name: [{ required: true, message: 'Please enter project name', trigger: ['blur', 'input'] }],
-  clientId: [{ required: true, type: 'number', message: 'Please select a client', trigger: ['blur', 'change'] }],
-  hourlyRate: [{ required: true, type: 'number', message: 'Please enter hourly rate', trigger: ['blur', 'change'] }],
-  currency: [{ required: true, message: 'Please select currency', trigger: ['blur', 'change'] }]
+  name: [{ required: true, message: t('form.validation.required', { field: t('form.project.name') }), trigger: ['blur', 'input'] }],
+  clientId: [{ required: true, type: 'number', message: t('form.validation.select', { field: t('form.project.client') }), trigger: ['blur', 'change'] }],
+  hourlyRate: [{ required: true, type: 'number', message: t('form.validation.required', { field: t('form.project.hourlyRate') }), trigger: ['blur', 'change'] }],
+  currency: [{ required: true, message: t('form.validation.select', { field: t('form.project.currency') }), trigger: ['blur', 'change'] }]
 }
 
 const currencyOptions = [
@@ -46,9 +48,9 @@ const currencyOptions = [
 ]
 
 const statusOptions = [
-  { label: 'Active', value: 'active' },
-  { label: 'Archived', value: 'archived' },
-  { label: 'Completed', value: 'completed' }
+  { label: t('projects.status.active'), value: 'active' },
+  { label: t('projects.status.archived'), value: 'archived' },
+  { label: t('projects.status.completed'), value: 'completed' }
 ]
 
 watch(() => props.project, (newProject) => {
@@ -98,54 +100,55 @@ function handleSubmit() {
 </script>
 
 <template>
-  <n-modal :show="show" @update:show="handleClose" preset="card" :style="{ width: '600px' }" :title="project ? 'Edit Project' : 'New Project'">
-    <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top" require-mark-placement="right-hanging">
-      <n-form-item label="Client" path="clientId">
-        <n-select 
-          v-model:value="formValue.clientId" 
-          :options="clients.map(c => ({ label: c.name, value: c.id }))" 
-          placeholder="Select client"
-        />
+  <n-modal :show="show" @update:show="handleClose" preset="card" :style="{ width: '600px' }"
+    :title="project ? t('projects.editProject') : t('projects.newProject')">
+    <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top"
+      require-mark-placement="right-hanging">
+      <n-form-item :label="t('form.project.client')" path="clientId">
+        <n-select v-model:value="formValue.clientId" :options="clients.map(c => ({ label: c.name, value: c.id }))"
+          :placeholder="t('form.project.clientPlaceholder')" />
       </n-form-item>
 
-      <n-form-item label="Project Name" path="name">
-        <n-input v-model:value="formValue.name" placeholder="Enter project name" />
+      <n-form-item :label="t('form.project.name')" path="name">
+        <n-input v-model:value="formValue.name" :placeholder="t('form.project.namePlaceholder')" />
       </n-form-item>
 
-      <n-form-item label="Description" path="description">
-        <n-input v-model:value="formValue.description" type="textarea" placeholder="Project description" :rows="2" />
+      <n-form-item :label="t('form.project.description')" path="description">
+        <n-input v-model:value="formValue.description" type="textarea"
+          :placeholder="t('form.project.descriptionPlaceholder')" :rows="2" />
       </n-form-item>
 
       <n-space>
-        <n-form-item label="Hourly Rate" path="hourlyRate" style="flex: 1;">
+        <n-form-item :label="t('form.project.hourlyRate')" path="hourlyRate" style="flex: 1;">
           <n-input-number v-model:value="formValue.hourlyRate" :min="0" placeholder="0.00" style="width: 100%;" />
         </n-form-item>
 
-        <n-form-item label="Currency" path="currency" style="flex: 1;">
+        <n-form-item :label="t('form.project.currency')" path="currency" style="flex: 1;">
           <n-select v-model:value="formValue.currency" :options="currencyOptions" />
         </n-form-item>
       </n-space>
 
       <n-space>
-        <n-form-item label="Status" path="status" style="flex: 1;">
+        <n-form-item :label="t('form.project.status')" path="status" style="flex: 1;">
           <n-select v-model:value="formValue.status" :options="statusOptions" />
         </n-form-item>
 
-        <n-form-item label="Deadline" path="deadline" style="flex: 1;">
-          <n-date-picker v-model:formatted-value="formValue.deadline" type="date" value-format="yyyy-MM-dd" style="width: 100%;" />
+        <n-form-item :label="t('form.project.deadline')" path="deadline" style="flex: 1;">
+          <n-date-picker v-model:formatted-value="formValue.deadline" type="date" value-format="yyyy-MM-dd"
+            style="width: 100%;" />
         </n-form-item>
       </n-space>
 
-      <n-form-item label="Tags" path="tags">
+      <n-form-item :label="t('form.project.tags')" path="tags">
         <n-dynamic-tags v-model:value="formValue.tags" />
       </n-form-item>
     </n-form>
 
     <template #footer>
       <n-space justify="end">
-        <n-button @click="handleClose">Cancel</n-button>
+        <n-button @click="handleClose">{{ t('form.cancel') }}</n-button>
         <n-button type="primary" @click="handleSubmit">
-          {{ project ? 'Update' : 'Create' }}
+          {{ project ? t('form.update') : t('form.create') }}
         </n-button>
       </n-space>
     </template>

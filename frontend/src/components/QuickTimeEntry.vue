@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { NInput, NSelect, NDatePicker, NButton, NIcon, useMessage } from 'naive-ui'
-import { PlusOutlined } from '@vicons/antd'
+import { NInput, NSelect, NDatePicker, NButton, NIcon, NTooltip, useMessage } from 'naive-ui'
+import { PlusOutlined, CalendarOutlined, ClockCircleOutlined, DollarOutlined } from '@vicons/antd'
 import { useI18n } from 'vue-i18n'
 import type { Project } from '@/types'
 
@@ -10,7 +10,7 @@ interface Props {
 }
 
 interface Emits {
-    (e: 'submit', entry: { projectId: number; description: string; durationSeconds: number; date: string }): void
+    (e: 'submit', entry: { projectId: number; description: string; durationSeconds: number; date: string; billable: boolean }): void
 }
 
 const props = defineProps<Props>()
@@ -23,6 +23,7 @@ const description = ref('')
 const projectId = ref<number | null>(null)
 const durationInput = ref('')
 const date = ref<string>(new Date().toISOString().split('T')[0]!)
+const isBillable = ref(true)
 
 // Computed
 const projectOptions = computed(() =>
@@ -69,20 +70,6 @@ function parseDuration(input: string): number | null {
     return null
 }
 
-function formatDurationPreview(input: string): string {
-    const seconds = parseDuration(input)
-    if (!seconds) return ''
-
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60)
-
-    if (h > 0 && m > 0) return `${h}h ${m}m`
-    if (h > 0) return `${h}h`
-    if (m > 0) return `${m}m`
-    return ''
-}
-
-const durationPreview = computed(() => formatDurationPreview(durationInput.value))
 const isValid = computed(() =>
     projectId.value &&
     description.value.trim() &&
@@ -110,7 +97,8 @@ function handleSubmit() {
         projectId: projectId.value,
         description: description.value.trim(),
         durationSeconds,
-        date: date.value
+        date: date.value,
+        billable: isBillable.value
     })
 
     // Reset form
@@ -126,123 +114,233 @@ function handleKeydown(e: KeyboardEvent) {
         handleSubmit()
     }
 }
+
+function toggleBillable() {
+    isBillable.value = !isBillable.value
+}
 </script>
 
 <template>
-    <div class="quick-entry">
-        <div class="entry-content">
-            <!-- Description -->
-            <n-input v-model:value="description" :placeholder="t('timesheet.quickEntry.placeholder')"
-                class="description-input" @keydown="handleKeydown" />
-
-            <!-- Project -->
-            <n-select v-model:value="projectId" :options="projectOptions"
-                :placeholder="t('timesheet.quickEntry.project')" class="project-select" filterable />
-
-            <!-- Date -->
+    <div class="compact-entry-bar">
+        <!-- Date Picker with Calendar Icon -->
+        <div class="entry-cell date-cell">
+            <n-icon class="cell-icon" size="16">
+                <CalendarOutlined />
+            </n-icon>
             <n-date-picker v-model:formatted-value="date" type="date" value-format="yyyy-MM-dd" class="date-picker"
-                :is-date-disabled="(ts: number) => ts > Date.now()" />
+                :is-date-disabled="(ts: number) => ts > Date.now()" size="small" />
+        </div>
 
-            <!-- Duration -->
-            <div class="duration-wrapper">
-                <n-input v-model:value="durationInput" placeholder="1.5h" class="duration-input"
-                    @keydown="handleKeydown" />
-                <span v-if="durationPreview" class="duration-preview">= {{ durationPreview }}</span>
-            </div>
+        <div class="divider" />
 
-            <!-- Submit -->
-            <n-button type="primary" :disabled="!isValid" @click="handleSubmit">
-                <template #icon>
-                    <n-icon>
-                        <PlusOutlined />
-                    </n-icon>
+        <!-- Project Selector -->
+        <div class="entry-cell project-cell">
+            <n-select v-model:value="projectId" :options="projectOptions"
+                :placeholder="t('timesheet.entries.selectProject')" class="project-select" filterable size="small" />
+        </div>
+
+        <div class="divider" />
+
+        <!-- Description Input -->
+        <div class="entry-cell description-cell">
+            <n-input v-model:value="description" :placeholder="t('timesheet.entries.describeTask')"
+                class="description-input" @keydown="handleKeydown" size="small" />
+        </div>
+
+        <div class="divider" />
+
+        <!-- Duration Input with Clock Icon -->
+        <div class="entry-cell duration-cell">
+            <n-icon class="cell-icon" size="16">
+                <ClockCircleOutlined />
+            </n-icon>
+            <n-input v-model:value="durationInput" placeholder="0:00" class="duration-input" @keydown="handleKeydown"
+                size="small" />
+        </div>
+
+        <div class="divider" />
+
+        <!-- Billable Toggle -->
+        <div class="entry-cell billable-cell">
+            <n-tooltip trigger="hover">
+                <template #trigger>
+                    <n-button :type="isBillable ? 'primary' : 'default'" :quaternary="!isBillable" size="small" circle
+                        @click="toggleBillable">
+                        <template #icon>
+                            <n-icon>
+                                <DollarOutlined />
+                            </n-icon>
+                        </template>
+                    </n-button>
                 </template>
-                {{ t('common.add') }}
-            </n-button>
+                {{ isBillable ? t('timesheet.entries.billable') : t('timesheet.entries.nonBillable') }}
+            </n-tooltip>
         </div>
 
-        <div class="hint-text">
-            <span>{{ t('timesheet.quickEntry.durationHint', { examples: t('timesheet.quickEntry.durationExamples') })
-                }}</span>
-        </div>
+        <!-- Add Entry Button -->
+        <n-button type="success" :disabled="!isValid" @click="handleSubmit" size="small" class="add-entry-btn">
+            <template #icon>
+                <n-icon>
+                    <PlusOutlined />
+                </n-icon>
+            </template>
+            {{ t('timesheet.entries.addEntry') }}
+        </n-button>
     </div>
 </template>
 
 <style scoped>
-.quick-entry {
-    background: var(--n-card-color);
-    border: 1px dashed var(--n-border-color);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 24px;
-    transition: border-color 0.2s ease;
-}
-
-.quick-entry:focus-within {
-    border-color: var(--n-primary-color);
-    border-style: solid;
-}
-
-.entry-content {
+.compact-entry-bar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    background: var(--n-card-color);
+    border: 1px solid var(--n-border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    gap: 0;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.description-input {
+.compact-entry-bar:focus-within {
+    border-color: var(--n-primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--n-primary-color-rgb), 0.1);
+}
+
+.entry-cell {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+}
+
+.cell-icon {
+    color: var(--n-text-color-3);
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+.divider {
+    width: 1px;
+    height: 24px;
+    background: var(--n-divider-color);
+    flex-shrink: 0;
+}
+
+/* Date Cell */
+.date-cell {
+    min-width: 140px;
+}
+
+.date-picker {
+    flex: 1;
+}
+
+.date-picker :deep(.n-input) {
+    --n-border: none !important;
+    --n-border-hover: none !important;
+    --n-border-focus: none !important;
+    background: transparent !important;
+}
+
+.date-picker :deep(.n-input__border),
+.date-picker :deep(.n-input__state-border) {
+    display: none !important;
+}
+
+/* Project Cell */
+.project-cell {
+    min-width: 180px;
+}
+
+.project-select {
+    flex: 1;
+}
+
+.project-select :deep(.n-base-selection) {
+    --n-border: none !important;
+    --n-border-hover: none !important;
+    --n-border-focus: none !important;
+    --n-border-active: none !important;
+    background: transparent !important;
+}
+
+.project-select :deep(.n-base-selection__border),
+.project-select :deep(.n-base-selection__state-border) {
+    display: none !important;
+}
+
+/* Description Cell */
+.description-cell {
     flex: 1;
     min-width: 200px;
 }
 
-.project-select {
-    width: 160px;
+.description-input {
+    flex: 1;
 }
 
-.date-picker {
-    width: 140px;
+.description-input :deep(.n-input__border),
+.description-input :deep(.n-input__state-border) {
+    display: none !important;
 }
 
-.duration-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+/* Duration Cell */
+.duration-cell {
+    min-width: 80px;
 }
 
 .duration-input {
-    width: 80px;
+    width: 60px;
 }
 
-.duration-preview {
-    font-size: 0.85rem;
-    color: var(--n-text-color-3);
-    white-space: nowrap;
+.duration-input :deep(.n-input__border),
+.duration-input :deep(.n-input__state-border) {
+    display: none !important;
 }
 
-.hint-text {
-    margin-top: 8px;
-    font-size: 0.8rem;
-    color: var(--n-text-color-3);
+/* Billable Cell */
+.billable-cell {
+    padding: 0 8px;
 }
 
-@media (max-width: 768px) {
-    .entry-content {
-        flex-direction: column;
-        align-items: stretch;
+/* Add Entry Button */
+.add-entry-btn {
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+@media (max-width: 1024px) {
+    .compact-entry-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px;
     }
 
-    .description-input,
-    .project-select,
-    .date-picker {
-        width: 100%;
+    .divider {
+        display: none;
     }
 
-    .duration-wrapper {
-        width: 100%;
+    .entry-cell {
+        padding: 4px 8px;
+        border: 1px solid var(--n-divider-color);
+        border-radius: 6px;
     }
 
-    .duration-input {
+    .date-cell {
+        min-width: 130px;
+    }
+
+    .project-cell {
         flex: 1;
+        min-width: 150px;
+    }
+
+    .description-cell {
+        width: 100%;
+        order: 10;
+    }
+
+    .add-entry-btn {
+        margin-left: auto;
     }
 }
 </style>

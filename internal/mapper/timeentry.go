@@ -15,6 +15,7 @@ func ToTimeEntryOutput(e models.TimeEntry) dto.TimeEntryOutput {
 		EndTime:         e.EndTime,
 		DurationSeconds: e.DurationSeconds,
 		Description:     e.Description,
+		Billable:        e.Billable,
 		Invoiced:        e.Invoiced,
 	}
 }
@@ -40,6 +41,7 @@ func ToTimeEntryEntity(input dto.CreateTimeEntryInput) models.TimeEntry {
 		EndTime:         input.EndTime,
 		DurationSeconds: input.DurationSeconds,
 		Description:     input.Description,
+		Billable:        input.Billable,
 		Invoiced:        input.Invoiced,
 	}
 }
@@ -52,5 +54,6 @@ func ApplyTimeEntryUpdate(e *models.TimeEntry, input dto.UpdateTimeEntryInput) {
 	e.EndTime = input.EndTime
 	e.DurationSeconds = input.DurationSeconds
 	e.Description = input.Description
+	e.Billable = input.Billable
 	e.Invoiced = input.Invoiced
 }

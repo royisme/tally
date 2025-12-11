@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { h, onMounted, computed, ref } from 'vue'
-import { 
+import {
   NButton, NDataTable, NTag, NSpace, NAvatar, NText, NCard, NGrid, NGridItem,
-  type DataTableColumns, useMessage, useDialog 
+  type DataTableColumns, useMessage, useDialog
 } from 'naive-ui'
 import PageContainer from '@/components/PageContainer.vue'
 import ClientFormModal from '@/components/ClientFormModal.vue'
 import { useClientStore } from '@/stores/clients'
 import { useProjectStore } from '@/stores/projects'
 import { storeToRefs } from 'pinia'
+import { useI18n } from 'vue-i18n'
 import type { Client, Project } from '@/types'
 import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOpenOutlined } from '@vicons/antd'
 
@@ -18,6 +19,7 @@ const clientStore = useClientStore()
 const projectStore = useProjectStore()
 const { clients, loading: clientsLoading } = storeToRefs(clientStore)
 const { projects, loading: projectsLoading } = storeToRefs(projectStore)
+const { t } = useI18n()
 
 // Modal State
 const showModal = ref(false)
@@ -35,16 +37,16 @@ function handleEditClient(client: Client) {
 
 function handleDeleteClient(client: Client) {
   dialog.warning({
-    title: 'Delete Client',
-    content: `Are you sure you want to delete "${client.name}"? This action cannot be undone.`,
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
+    title: t('clients.deleteTitle'),
+    content: t('clients.deleteConfirm', { name: client.name }),
+    positiveText: t('common.delete'),
+    negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       try {
         await clientStore.deleteClient(client.id)
-        message.success('Client deleted successfully')
+        message.success(t('clients.deleteSuccess'))
       } catch (error) {
-        message.error('Failed to delete client')
+        message.error(t('clients.deleteError'))
       }
     }
   })
@@ -54,13 +56,13 @@ async function handleSubmitClient(client: Omit<Client, 'id'> | Client) {
   try {
     if ('id' in client) {
       await clientStore.updateClient(client)
-      message.success('Client updated successfully')
+      message.success(t('clients.updateSuccess'))
     } else {
       await clientStore.createClient(client)
-      message.success('Client created successfully')
+      message.success(t('clients.createSuccess'))
     }
   } catch (error) {
-    message.error('Failed to save client')
+    message.error(t('clients.saveError'))
   }
 }
 
@@ -80,21 +82,21 @@ function getClientProjects(clientId: number): Project[] {
 // Sub-Component: Project List (Rendered in Expanded Row)
 const ProjectListRenderer = (props: { projects: Project[] }) => {
   if (props.projects.length === 0) {
-    return h(NText, { depth: 3, style: 'padding: 12px 0; display: block;' }, { default: () => 'No active projects' })
+    return h(NText, { depth: 3, style: 'padding: 12px 0; display: block;' }, { default: () => t('projects.noProjects') })
   }
 
   return h(NGrid, { cols: 2, xGap: 12, yGap: 12 }, {
-    default: () => props.projects.map(project => 
+    default: () => props.projects.map(project =>
       h(NGridItem, null, {
         default: () => h(NCard, { size: 'small', bordered: true, style: 'background-color: var(--n-action-color);' }, {
           header: () => h(NText, { strong: true }, { default: () => project.name }),
-          headerExtra: () => h(NTag, { 
-            type: project.status === 'active' ? 'success' : 'default', 
-            size: 'tiny', 
+          headerExtra: () => h(NTag, {
+            type: project.status === 'active' ? 'success' : 'default',
+            size: 'tiny',
             bordered: false,
-            round: true 
-          }, { default: () => project.status }),
-          default: () => h(NText, { depth: 3, style: 'font-size: 12px' }, { default: () => project.description || 'No description' })
+            round: true
+          }, { default: () => t(`projects.status.${project.status}`) }),
+          default: () => h(NText, { depth: 3, style: 'font-size: 12px' }, { default: () => project.description || '-' })
         })
       })
     )
@@ -108,17 +110,17 @@ const columns: DataTableColumns<Client> = [
     renderExpand: (row) => {
       const clientProjects = getClientProjects(row.id)
       return h(
-        'div', 
+        'div',
         { style: 'padding: 12px 24px 24px 60px;' }, // Indent content
         [
-          h(NText, { strong: true, style: 'margin-bottom: 8px; display: block;' }, { default: () => 'Associated Projects' }),
+          h(NText, { strong: true, style: 'margin-bottom: 8px; display: block;' }, { default: () => t('clients.columns.associatedProjects') }),
           h(ProjectListRenderer, { projects: clientProjects })
         ]
       )
     }
   },
   {
-    title: 'Client Name',
+    title: () => t('clients.columns.clientName'),
     key: 'name',
     width: 280,
     render(row) {
@@ -131,13 +133,13 @@ const columns: DataTableColumns<Client> = [
             h(NAvatar, {
               size: 'small',
               src: row.avatar,
-              fallbackSrc: 'https://07akioni.oss-cn-hangzhou.aliyuncs.com/07akioni.jpeg', 
+              fallbackSrc: 'https://07akioni.oss-cn-hangzhou.aliyuncs.com/07akioni.jpeg',
               round: true,
               style: 'margin-right: 8px'
             }),
             h('div', [
               h('div', { style: 'font-weight: 600;' }, row.name),
-              h(NText, { depth: 3, style: 'font-size: 11px;' }, { default: () => `${projectCount} Projects` }) 
+              h(NText, { depth: 3, style: 'font-size: 11px;' }, { default: () => t('clients.columns.projectsCount', { count: projectCount }) })
             ])
           ]
         }
@@ -145,14 +147,14 @@ const columns: DataTableColumns<Client> = [
     }
   },
   {
-    title: 'Contact Person',
+    title: () => t('clients.columns.contactPerson'),
     key: 'contactPerson',
     render(row) {
       return row.contactPerson || '-'
     }
   },
   {
-    title: 'Status',
+    title: () => t('clients.columns.status'),
     key: 'status',
     width: 100,
     render(row) {
@@ -164,12 +166,12 @@ const columns: DataTableColumns<Client> = [
           round: true,
           size: 'small'
         },
-        { default: () => row.status === 'active' ? 'Active' : 'Inactive' }
+        { default: () => t(`clients.status.${row.status}`) }
       )
     }
   },
   {
-    title: 'Actions',
+    title: () => t('clients.columns.actions'),
     key: 'actions',
     width: 140,
     render(row) {
@@ -204,33 +206,22 @@ const columns: DataTableColumns<Client> = [
 </script>
 
 <template>
-  <PageContainer 
-    title="Clients" 
-    subtitle="Manage your client relationships and agreements"
-  >
+  <PageContainer :title="t('clients.title')" :subtitle="t('clients.subtitle')">
     <template #extra>
       <n-button type="primary" @click="handleNewClient">
         <template #icon>
-          <n-icon><PlusOutlined /></n-icon>
+          <n-icon>
+            <PlusOutlined />
+          </n-icon>
         </template>
-        New Client
+        {{ t('clients.addClient') }}
       </n-button>
     </template>
 
-    <ClientFormModal 
-      v-model:show="showModal" 
-      :client="editingClient" 
-      @submit="handleSubmitClient" 
-    />
+    <ClientFormModal v-model:show="showModal" :client="editingClient" @submit="handleSubmitClient" />
 
-    <n-data-table
-      :columns="columns"
-      :data="clients"
-      :loading="loading"
-      :bordered="false"
-      class="client-table"
-      :row-key="(row) => row.id" 
-    />
+    <n-data-table :columns="columns" :data="clients" :loading="loading" :bordered="false" class="client-table"
+      :row-key="(row) => row.id" />
   </PageContainer>
 </template>
 
@@ -240,8 +231,9 @@ const columns: DataTableColumns<Client> = [
   font-weight: 600;
   color: var(--n-text-color-2);
 }
+
 /* Ensure clean nested look */
 .client-table :deep(.n-data-table-td--expand) {
-  background-color: var(--n-body-color) !important; 
+  background-color: var(--n-body-color) !important;
 }
 </style>

@@ -18,6 +18,44 @@ export default {
     actions: "Actions",
   },
 
+  // Splash Screen
+  splash: {
+    tagline: "Streamline your freelance business",
+    initializing: "Initializing...",
+    start: "Start",
+  },
+
+  // Authentication
+  auth: {
+    welcome: "Welcome Back",
+    selectUser: "Select your profile to continue",
+    addUser: "Add User",
+    enterPassword: "Enter password",
+    login: "Login",
+    invalidPassword: "Invalid password",
+    createAccount: "Create Account",
+    setupProfile: "Set up your profile to get started",
+    username: "Username",
+    usernamePlaceholder: "Enter your username",
+    email: "Email (Optional)",
+    emailPlaceholder: "your@email.com",
+    password: "Password",
+    passwordPlaceholder: "Enter password",
+    confirmPassword: "Confirm Password",
+    confirmPasswordPlaceholder: "Re-enter password",
+    passwordsNotMatch: "Passwords do not match",
+    regenerateAvatar: "Generate new avatar",
+    createProfile: "Create Profile",
+    registerFailed: "Registration failed",
+    logout: "Logout",
+    switchUser: "Switch User",
+    // Financial preferences
+    financialPreferences: "Financial Preferences",
+    language: "Language",
+    currency: "Currency",
+    province: "Province/Region (for tax)",
+  },
+
   // Navigation
   nav: {
     dashboard: "Dashboard",
@@ -87,6 +125,27 @@ export default {
       deletedMsg: "Entry deleted",
       updatedMsg: "Time entry updated",
     },
+    // Entries section
+    entries: {
+      title: "Time Entries",
+      showingResults: "Showing {from} to {to} of {total} results",
+      pageInfo: "Page {current} of {total}",
+      exportCSV: "Export CSV",
+      selectProject: "Select Project",
+      describeTask: "Describe your task...",
+      nonBillable: "Non-billable",
+      billable: "Billable",
+      addEntry: "Add Entry",
+    },
+    // Table columns
+    columns: {
+      date: "DATE",
+      project: "PROJECT",
+      task: "TASK",
+      status: "STATUS",
+      hours: "HOURS",
+      billable: "BILLABLE",
+    },
     // Form Modal
     form: {
       editTitle: "Edit Time Entry",
@@ -109,7 +168,29 @@ export default {
     title: "Clients",
     subtitle: "Manage your client relationships",
     addClient: "Add Client",
+    editClient: "Edit Client",
+    newClient: "New Client",
     noClients: "No clients found",
+    deleteTitle: "Delete Client",
+    deleteConfirm:
+      'Are you sure you want to delete "{name}"? This action cannot be undone.',
+    deleteSuccess: "Client deleted successfully",
+    deleteError: "Failed to delete client",
+    updateSuccess: "Client updated successfully",
+    createSuccess: "Client created successfully",
+    saveError: "Failed to save client",
+    columns: {
+      clientName: "Client Name",
+      contactPerson: "Contact Person",
+      status: "Status",
+      actions: "Actions",
+      associatedProjects: "Associated Projects",
+      projectsCount: "{count} Projects",
+    },
+    status: {
+      active: "Active",
+      inactive: "Inactive",
+    },
   },
 
   // Projects
@@ -117,7 +198,31 @@ export default {
     title: "Projects",
     subtitle: "Manage your projects",
     addProject: "Add Project",
+    newProject: "New Project",
+    editProject: "Edit Project",
     noProjects: "No projects found",
+    deleteTitle: "Delete Project",
+    deleteConfirm: 'Are you sure you want to delete "{name}"?',
+    deleteSuccess: "Project deleted successfully",
+    deleteError: "Failed to delete project",
+    updateSuccess: "Project updated successfully",
+    createSuccess: "Project created successfully",
+    saveError: "Failed to save project",
+    manage: "Managing {name}",
+    columns: {
+      projectName: "Project Name",
+      status: "Status",
+      progress: "Progress",
+      deadline: "Deadline",
+      noDeadline: "No Deadline",
+      hourlyRate: "Hourly Rate",
+      actions: "Actions",
+    },
+    status: {
+      active: "Active",
+      archived: "Archived",
+      completed: "Completed",
+    },
   },
 
   // Invoices
@@ -125,7 +230,73 @@ export default {
     title: "Invoices",
     subtitle: "Manage your invoices",
     createInvoice: "Create Invoice",
+    newInvoice: "New Invoice",
+    editInvoice: "Edit Invoice",
     noInvoices: "No invoices found",
+    updateSuccess: "Invoice updated successfully",
+    createSuccess: "Invoice created successfully",
+    saveError: "Failed to save invoice",
+    downloading: "Downloading {number}...",
+    stats: {
+      outstandingAmount: "Outstanding Amount",
+    },
+    columns: {
+      invoiceNumber: "Invoice #",
+      client: "Client",
+      issueDate: "Issue Date",
+      amount: "Amount",
+      status: "Status",
+      actions: "Actions",
+    },
+    status: {
+      paid: "Paid",
+      sent: "Sent",
+      overdue: "Overdue",
+    },
+  },
+
+  // Forms
+  form: {
+    required: "Required",
+    save: "Save",
+    cancel: "Cancel",
+    create: "Create",
+    update: "Update",
+    validation: {
+      required: "Please enter {field}",
+      email: "Please enter a valid email",
+      number: "Please enter a valid number",
+      select: "Please select {field}",
+    },
+    client: {
+      name: "Client Name",
+      namePlaceholder: "Enter client name",
+      email: "Email",
+      emailPlaceholder: "client@example.com",
+      contactPerson: "Contact Person",
+      contactPersonPlaceholder: "John Doe",
+      website: "Website",
+      websitePlaceholder: "https://example.com",
+      address: "Address",
+      addressPlaceholder: "Full address",
+      currency: "Currency",
+      status: "Status",
+      notes: "Notes",
+      notesPlaceholder: "Additional notes",
+    },
+    project: {
+      client: "Client",
+      clientPlaceholder: "Select client",
+      name: "Project Name",
+      namePlaceholder: "Enter project name",
+      description: "Description",
+      descriptionPlaceholder: "Project description",
+      hourlyRate: "Hourly Rate",
+      currency: "Currency",
+      status: "Status",
+      deadline: "Deadline",
+      tags: "Tags",
+    },
   },
 
   // Dashboard

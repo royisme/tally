@@ -8,5 +8,6 @@ type TimeEntry struct {
 	EndTime         string `json:"endTime"`
 	DurationSeconds int    `json:"durationSeconds"`
 	Description     string `json:"description"`
+	Billable        bool   `json:"billable"`
 	Invoiced        bool   `json:"invoiced"`
 }

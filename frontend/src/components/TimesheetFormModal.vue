@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import { NModal, NForm, NFormItem, NInput, NInputNumber, NSelect, NDatePicker, NTimePicker, NCheckbox, NButton, NSpace, useMessage } from 'naive-ui'
 import type { TimeEntry, Project } from '@/types'
 import type { FormInst, FormRules } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 
 interface Props {
   show: boolean
@@ -18,11 +19,12 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const message = useMessage()
+const { t } = useI18n()
 
 const formRef = ref<FormInst | null>(null)
 const formValue = ref<Omit<TimeEntry, 'id'>>({
   projectId: 0,
-  date: new Date().toISOString().split('T')[0],
+  date: new Date().toISOString().split('T')[0] ?? '',
   startTime: '',
   endTime: '',
   durationSeconds: 0,
@@ -31,10 +33,10 @@ const formValue = ref<Omit<TimeEntry, 'id'>>({
 })
 
 const rules: FormRules = {
-  projectId: [{ required: true, type: 'number', message: 'Please select a project', trigger: ['blur', 'change'] }],
-  date: [{ required: true, message: 'Please select date', trigger: ['blur', 'change'] }],
-  durationSeconds: [{ required: true, type: 'number', message: 'Please enter duration', trigger: ['blur', 'change'] }],
-  description: [{ required: true, message: 'Please enter description', trigger: ['blur', 'input'] }]
+  projectId: [{ required: true, type: 'number', message: t('timesheet.quickEntry.selectProject'), trigger: ['blur', 'change'] }],
+  date: [{ required: true, message: t('form.validation.select', { field: t('timesheet.form.date') }), trigger: ['blur', 'change'] }],
+  durationSeconds: [{ required: true, type: 'number', message: t('timesheet.quickEntry.invalidDuration'), trigger: ['blur', 'change'] }],
+  description: [{ required: true, message: t('timesheet.quickEntry.enterDescription'), trigger: ['blur', 'input'] }]
 }
 
 // Convert seconds to hours for input
@@ -57,7 +59,7 @@ watch(() => props.entry, (newEntry) => {
   } else {
     formValue.value = {
       projectId: 0,
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().split('T')[0] ?? '',
       startTime: '',
       endTime: '',
       durationSeconds: 0,
@@ -81,53 +83,56 @@ function handleSubmit() {
       }
       handleClose()
     } else {
-      message.error('Please fix form errors')
+      message.error(t('form.saveError'))
     }
   })
 }
 </script>
 
 <template>
-  <n-modal :show="show" @update:show="handleClose" preset="card" :style="{ width: '600px' }" :title="entry ? 'Edit Time Entry' : 'Log Time'">
-    <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top" require-mark-placement="right-hanging">
-      <n-form-item label="Project" path="projectId">
-        <n-select 
-          v-model:value="formValue.projectId" 
-          :options="projects.map(p => ({ label: p.name, value: p.id }))" 
-          placeholder="Select project"
-        />
+  <n-modal :show="show" @update:show="handleClose" preset="card" :style="{ width: '600px' }"
+    :title="entry ? t('timesheet.form.editTitle') : t('timesheet.form.createTitle')">
+    <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top"
+      require-mark-placement="right-hanging">
+      <n-form-item :label="t('timesheet.form.project')" path="projectId">
+        <n-select v-model:value="formValue.projectId" :options="projects.map(p => ({ label: p.name, value: p.id }))"
+          :placeholder="t('timesheet.timer.selectProject')" />
       </n-form-item>
 
-      <n-form-item label="Date" path="date">
-        <n-date-picker v-model:formatted-value="formValue.date" type="date" value-format="yyyy-MM-dd" style="width: 100%;" />
+      <n-form-item :label="t('timesheet.form.date')" path="date">
+        <n-date-picker v-model:formatted-value="formValue.date" type="date" value-format="yyyy-MM-dd"
+          style="width: 100%;" />
       </n-form-item>
 
-      <n-form-item label="Duration (Hours)" path="durationSeconds">
+      <n-form-item :label="t('timesheet.form.duration')" path="durationSeconds">
         <n-input-number v-model:value="durationHours" :min="0" :step="0.25" placeholder="0.00" style="width: 100%;" />
       </n-form-item>
 
-      <n-form-item label="Description" path="description">
-        <n-input v-model:value="formValue.description" type="textarea" placeholder="What did you work on?" :rows="3" />
+      <n-form-item :label="t('timesheet.form.description')" path="description">
+        <n-input v-model:value="formValue.description" type="textarea"
+          :placeholder="t('timesheet.form.descriptionPlaceholder')" :rows="3" />
       </n-form-item>
 
-      <n-form-item label="Time Range (Optional)">
+      <n-form-item :label="t('timesheet.form.timeRange')">
         <n-space>
-          <n-time-picker v-model:formatted-value="formValue.startTime" value-format="HH:mm" format="HH:mm" placeholder="Start time" />
+          <n-time-picker v-model:formatted-value="formValue.startTime" value-format="HH:mm" format="HH:mm"
+            :placeholder="t('timesheet.form.startTime')" />
           <span>to</span>
-          <n-time-picker v-model:formatted-value="formValue.endTime" value-format="HH:mm" format="HH:mm" placeholder="End time" />
+          <n-time-picker v-model:formatted-value="formValue.endTime" value-format="HH:mm" format="HH:mm"
+            :placeholder="t('timesheet.form.endTime')" />
         </n-space>
       </n-form-item>
 
       <n-form-item>
-        <n-checkbox v-model:checked="formValue.invoiced">Already invoiced</n-checkbox>
+        <n-checkbox v-model:checked="formValue.invoiced">{{ t('timesheet.form.alreadyInvoiced') }}</n-checkbox>
       </n-form-item>
     </n-form>
 
     <template #footer>
       <n-space justify="end">
-        <n-button @click="handleClose">Cancel</n-button>
+        <n-button @click="handleClose">{{ t('common.cancel') }}</n-button>
         <n-button type="primary" @click="handleSubmit">
-          {{ entry ? 'Update' : 'Log Time' }}
+          {{ entry ? t('timesheet.form.update') : t('timesheet.logTime') }}
         </n-button>
       </n-space>
     </template>

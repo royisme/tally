@@ -18,9 +18,9 @@ func NewClientService(db *sql.DB) *ClientService {
 	return &ClientService{db: db}
 }
 
-// List returns all clients as DTOs.
-func (s *ClientService) List() []dto.ClientOutput {
-	rows, err := s.db.Query("SELECT id, name, email, website, avatar, contact_person, address, currency, status, notes FROM clients")
+// List returns all clients for a specific user as DTOs.
+func (s *ClientService) List(userID int) []dto.ClientOutput {
+	rows, err := s.db.Query("SELECT id, name, email, website, avatar, contact_person, address, currency, status, notes FROM clients WHERE user_id = ?", userID)
 	if err != nil {
 		log.Println("Error querying clients:", err)
 		return []dto.ClientOutput{}
@@ -40,9 +40,9 @@ func (s *ClientService) List() []dto.ClientOutput {
 	return mapper.ToClientOutputList(clients)
 }
 
-// Get returns a single client by ID.
-func (s *ClientService) Get(id int) (dto.ClientOutput, error) {
-	row := s.db.QueryRow("SELECT id, name, email, website, avatar, contact_person, address, currency, status, notes FROM clients WHERE id = ?", id)
+// Get returns a single client by ID for a specific user.
+func (s *ClientService) Get(userID int, id int) (dto.ClientOutput, error) {
+	row := s.db.QueryRow("SELECT id, name, email, website, avatar, contact_person, address, currency, status, notes FROM clients WHERE id = ? AND user_id = ?", id, userID)
 	var c models.Client
 	err := row.Scan(&c.ID, &c.Name, &c.Email, &c.Website, &c.Avatar, &c.ContactPerson, &c.Address, &c.Currency, &c.Status, &c.Notes)
 	if err != nil {
@@ -51,18 +51,18 @@ func (s *ClientService) Get(id int) (dto.ClientOutput, error) {
 	return mapper.ToClientOutput(c), nil
 }
 
-// Create adds a new client and returns the created client as DTO.
-func (s *ClientService) Create(input dto.CreateClientInput) dto.ClientOutput {
+// Create adds a new client for a specific user and returns the created client as DTO.
+func (s *ClientService) Create(userID int, input dto.CreateClientInput) dto.ClientOutput {
 	entity := mapper.ToClientEntity(input)
 
-	stmt, err := s.db.Prepare("INSERT INTO clients(name, email, website, avatar, contact_person, address, currency, status, notes) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := s.db.Prepare("INSERT INTO clients(user_id, name, email, website, avatar, contact_person, address, currency, status, notes) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		log.Println("Error preparing insert:", err)
 		return dto.ClientOutput{}
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(entity.Name, entity.Email, entity.Website, entity.Avatar, entity.ContactPerson, entity.Address, entity.Currency, entity.Status, entity.Notes)
+	res, err := stmt.Exec(userID, entity.Name, entity.Email, entity.Website, entity.Avatar, entity.ContactPerson, entity.Address, entity.Currency, entity.Status, entity.Notes)
 	if err != nil {
 		log.Println("Error inserting client:", err)
 		return dto.ClientOutput{}
@@ -73,29 +73,29 @@ func (s *ClientService) Create(input dto.CreateClientInput) dto.ClientOutput {
 	return mapper.ToClientOutput(entity)
 }
 
-// Update modifies an existing client and returns the updated client as DTO.
-func (s *ClientService) Update(input dto.UpdateClientInput) dto.ClientOutput {
-	stmt, err := s.db.Prepare("UPDATE clients SET name=?, email=?, website=?, avatar=?, contact_person=?, address=?, currency=?, status=?, notes=? WHERE id=?")
+// Update modifies an existing client for a specific user and returns the updated client as DTO.
+func (s *ClientService) Update(userID int, input dto.UpdateClientInput) dto.ClientOutput {
+	stmt, err := s.db.Prepare("UPDATE clients SET name=?, email=?, website=?, avatar=?, contact_person=?, address=?, currency=?, status=?, notes=? WHERE id=? AND user_id=?")
 	if err != nil {
 		log.Println("Error preparing update:", err)
 		return dto.ClientOutput{}
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(input.Name, input.Email, input.Website, input.Avatar, input.ContactPerson, input.Address, input.Currency, input.Status, input.Notes, input.ID)
+	_, err = stmt.Exec(input.Name, input.Email, input.Website, input.Avatar, input.ContactPerson, input.Address, input.Currency, input.Status, input.Notes, input.ID, userID)
 	if err != nil {
 		log.Println("Error updating client:", err)
 		return dto.ClientOutput{}
 	}
 
 	// Return the updated client
-	output, _ := s.Get(input.ID)
+	output, _ := s.Get(userID, input.ID)
 	return output
 }
 
-// Delete removes a client by ID.
-func (s *ClientService) Delete(id int) {
-	_, err := s.db.Exec("DELETE FROM clients WHERE id=?", id)
+// Delete removes a client by ID for a specific user.
+func (s *ClientService) Delete(userID int, id int) {
+	_, err := s.db.Exec("DELETE FROM clients WHERE id=? AND user_id=?", id, userID)
 	if err != nil {
 		log.Println("Error deleting client:", err)
 	}

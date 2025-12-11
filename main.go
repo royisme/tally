@@ -20,6 +20,7 @@ func main() {
 	dbConn := db.Init()
 
 	// Initialize Services
+	authService := services.NewAuthService(dbConn)
 	clientService := services.NewClientService(dbConn)
 	projectService := services.NewProjectService(dbConn)
 	timesheetService := services.NewTimesheetService(dbConn)
@@ -37,6 +38,7 @@ func main() {
 		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,
+			authService,
 			clientService,
 			projectService,
 			timesheetService,

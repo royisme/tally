@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import AppProvider from '@/components/AppProvider.vue'
-import { NLayout, NLayoutSider, NLayoutContent, NLayoutHeader, NLayoutFooter, NMenu, NIcon, NButton, NTooltip, NSpace, NDropdown } from 'naive-ui'
+import { NLayout, NLayoutSider, NLayoutContent, NLayoutHeader, NLayoutFooter, NMenu, NIcon, NButton, NTooltip, NSpace, NDropdown, NAvatar } from 'naive-ui'
 import { ref, watch, h, computed, type Component } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
-import type { MenuOption } from 'naive-ui'
+import type { MenuOption, DropdownOption } from 'naive-ui'
 import {
   DashboardOutlined,
   UserOutlined,
@@ -17,7 +18,9 @@ import {
   QuestionCircleOutlined,
   GlobalOutlined,
   BulbOutlined,
-  BulbFilled
+  BulbFilled,
+  LogoutOutlined,
+  SwapOutlined
 } from '@vicons/antd'
 
 function renderIcon(icon: Component) {
@@ -27,7 +30,11 @@ function renderIcon(icon: Component) {
 const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
+const authStore = useAuthStore()
 const { t } = useI18n()
+
+// Determine layout based on route meta
+const isAuthLayout = computed(() => route.meta.layout === 'auth')
 
 // Menu options using i18n
 const menuOptions = computed<MenuOption[]>(() => [
@@ -48,8 +55,33 @@ const localeOptions = [
   { label: 'English', key: 'en-US' }
 ]
 
+// User Menu Options
+const userMenuOptions = computed<DropdownOption[]>(() => [
+  { 
+    label: t('auth.switchUser'), 
+    key: 'switch',
+    icon: renderIcon(SwapOutlined)
+  },
+  { type: 'divider', key: 'd1' },
+  { 
+    label: t('auth.logout'), 
+    key: 'logout',
+    icon: renderIcon(LogoutOutlined)
+  },
+])
+
 function handleLocaleSelect(key: 'zh-CN' | 'en-US') {
   appStore.setLocale(key)
+}
+
+function handleUserMenuSelect(key: string) {
+  if (key === 'logout') {
+    authStore.logout()
+    router.push('/splash')
+  } else if (key === 'switch') {
+    authStore.switchUser()
+    router.push('/login')
+  }
 }
 
 watch(() => route.path, (newPath) => {
@@ -63,80 +95,99 @@ function handleMenuUpdate(key: string) {
 
 <template>
   <AppProvider>
-    <n-layout style="height: 100vh">
+    <!-- Auth Layout (Splash, Login, Register) -->
+    <template v-if="isAuthLayout">
+      <RouterView />
+    </template>
 
-      <!-- 1. Header Area -->
-      <n-layout-header bordered class="app-header">
-        <div class="header-left">
-          <div class="brand-logo">FreelanceFlow</div>
-        </div>
-        <div class="header-right">
-          <n-space size="large" align="center">
+    <!-- Main Layout (Dashboard, etc.) -->
+    <template v-else>
+      <n-layout style="height: 100vh">
 
-            <!-- Language Switcher -->
-            <n-dropdown :options="localeOptions" @select="handleLocaleSelect">
+        <!-- 1. Header Area -->
+        <n-layout-header bordered class="app-header">
+          <div class="header-left">
+            <div class="brand-logo">FreelanceFlow</div>
+          </div>
+          <div class="header-right">
+            <n-space size="large" align="center">
+
+              <!-- Language Switcher -->
+              <n-dropdown :options="localeOptions" @select="handleLocaleSelect">
+                <n-button quaternary circle>
+                  <template #icon><n-icon>
+                      <GlobalOutlined />
+                    </n-icon></template>
+                </n-button>
+              </n-dropdown>
+
+              <!-- Theme Toggle -->
+              <n-tooltip trigger="hover">
+                <template #trigger>
+                  <n-button quaternary circle @click="appStore.toggleTheme()">
+                    <template #icon>
+                      <n-icon>
+                        <BulbFilled v-if="appStore.theme === 'dark'" />
+                        <BulbOutlined v-else />
+                      </n-icon>
+                    </template>
+                  </n-button>
+                </template>
+                {{ appStore.theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark') }}
+              </n-tooltip>
+
+              <div class="divider-vertical"></div>
+
               <n-button quaternary circle>
                 <template #icon><n-icon>
-                    <GlobalOutlined />
+                    <SettingOutlined />
                   </n-icon></template>
               </n-button>
-            </n-dropdown>
+              <n-button quaternary circle>
+                <template #icon><n-icon>
+                    <QuestionCircleOutlined />
+                  </n-icon></template>
+              </n-button>
 
-            <!-- Theme Toggle -->
-            <n-tooltip trigger="hover">
-              <template #trigger>
-                <n-button quaternary circle @click="appStore.toggleTheme()">
-                  <template #icon>
-                    <n-icon>
-                      <BulbFilled v-if="appStore.theme === 'dark'" />
-                      <BulbOutlined v-else />
-                    </n-icon>
-                  </template>
-                </n-button>
-              </template>
-              {{ appStore.theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark') }}
-            </n-tooltip>
+              <!-- User Menu -->
+              <n-dropdown :options="userMenuOptions" @select="handleUserMenuSelect">
+                <div class="user-menu-trigger">
+                  <n-avatar
+                    :size="32"
+                    :src="authStore.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${authStore.username}`"
+                  />
+                  <span class="username">{{ authStore.username }}</span>
+                </div>
+              </n-dropdown>
+            </n-space>
+          </div>
+        </n-layout-header>
 
-            <div class="divider-vertical"></div>
+        <!-- 2. Main Body Area (Sider + Content) -->
+        <n-layout position="absolute" style="top: 64px; bottom: 32px;" has-sider>
+          <n-layout-sider bordered collapse-mode="width" :collapsed-width="64" :width="240" :collapsed="collapsed"
+            show-trigger @collapse="collapsed = true" @expand="collapsed = false">
+            <n-menu :collapsed="collapsed" :collapsed-width="64" :collapsed-icon-size="22" :options="menuOptions"
+              :value="activeKey" @update:value="handleMenuUpdate" />
+          </n-layout-sider>
 
-            <n-button quaternary circle>
-              <template #icon><n-icon>
-                  <SettingOutlined />
-                </n-icon></template>
-            </n-button>
-            <n-button quaternary circle>
-              <template #icon><n-icon>
-                  <QuestionCircleOutlined />
-                </n-icon></template>
-            </n-button>
-          </n-space>
-        </div>
-      </n-layout-header>
+          <n-layout-content class="app-content">
+            <RouterView />
+          </n-layout-content>
+        </n-layout>
 
-      <!-- 2. Main Body Area (Sider + Content) -->
-      <n-layout position="absolute" style="top: 64px; bottom: 32px;" has-sider>
-        <n-layout-sider bordered collapse-mode="width" :collapsed-width="64" :width="240" :collapsed="collapsed"
-          show-trigger @collapse="collapsed = true" @expand="collapsed = false">
-          <n-menu :collapsed="collapsed" :collapsed-width="64" :collapsed-icon-size="22" :options="menuOptions"
-            :value="activeKey" @update:value="handleMenuUpdate" />
-        </n-layout-sider>
+        <!-- 3. Footer / Status Bar -->
+        <n-layout-footer bordered position="absolute" class="app-footer">
+          <div class="status-bar">
+            <span class="status-item">{{ t('footer.statusBar') }}</span>
+            <span class="status-item">{{ t('footer.weeklyHours') }} <strong>32h</strong></span>
+            <span class="divider">|</span>
+            <span class="status-item">{{ t('footer.pendingPayment') }} <strong>$2,400</strong></span>
+          </div>
+        </n-layout-footer>
 
-        <n-layout-content class="app-content">
-          <RouterView />
-        </n-layout-content>
       </n-layout>
-
-      <!-- 3. Footer / Status Bar -->
-      <n-layout-footer bordered position="absolute" class="app-footer">
-        <div class="status-bar">
-          <span class="status-item">{{ t('footer.statusBar') }}</span>
-          <span class="status-item">{{ t('footer.weeklyHours') }} <strong>32h</strong></span>
-          <span class="divider">|</span>
-          <span class="status-item">{{ t('footer.pendingPayment') }} <strong>$2,400</strong></span>
-        </div>
-      </n-layout-footer>
-
-    </n-layout>
+    </template>
   </AppProvider>
 </template>
 
@@ -194,4 +245,25 @@ strong {
   color: var(--n-primary-color);
   font-weight: 600;
 }
+
+/* User Menu */
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.user-menu-trigger:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.username {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
 </style>
+

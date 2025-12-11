@@ -4,6 +4,7 @@ export interface UpdateInfo {
   releaseNotes: string;
   releaseNotesUrl?: string;
   mandatory: boolean;
+  minimumOsVersion?: Record<string, string>;
   platforms: Record<string, PlatformInfo>;
 }
 

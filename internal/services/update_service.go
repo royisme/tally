@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"freelance-flow/internal/update"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -29,17 +31,20 @@ type UpdateService struct {
 	_              int // hours, unused for now (checkInterval)
 	downloader     *update.Downloader
 	cancelDownload context.CancelFunc
+	skippedVersion string
 }
 
 // NewUpdateService creates a new UpdateService.
 func NewUpdateService() *UpdateService {
-	return &UpdateService{
+	svc := &UpdateService{
 		state: update.State{
 			Status:         update.StatusNone,
 			CurrentVersion: update.GetCurrentVersion(),
 		},
 		downloader: update.NewDownloader(),
 	}
+	svc.loadSkippedVersion()
+	return svc
 }
 
 // startup is called by Wails when the application starts.
@@ -88,10 +93,18 @@ func (s *UpdateService) CheckForUpdate() error {
 	defer s.mu.Unlock()
 
 	if available {
-		s.state.Status = update.StatusAvailable
-		s.state.LatestVersion = latest.Version
-		s.state.UpdateInfo = latest
-		s.state.Error = ""
+		// If user skipped this version, keep silent
+		if s.skippedVersion != "" && s.skippedVersion == latest.Version {
+			s.state.Status = update.StatusNone
+			s.state.LatestVersion = latest.Version
+			s.state.UpdateInfo = latest
+			s.state.Error = ""
+		} else {
+			s.state.Status = update.StatusAvailable
+			s.state.LatestVersion = latest.Version
+			s.state.UpdateInfo = latest
+			s.state.Error = ""
+		}
 	} else {
 		s.state.Status = update.StatusNone
 		// Keep current info but marked as none? Or clear?
@@ -171,7 +184,9 @@ func (s *UpdateService) StartDownload() error {
 		// Let's assume asset.Signature contains the SHA256 hash.
 
 		if asset.Signature != "" {
-			if err := s.downloader.VerifyHash(destPath, asset.Signature); err != nil {
+			// Accept signatures with or without "sha256:" prefix
+			hash := strings.TrimPrefix(asset.Signature, "sha256:")
+			if err := s.downloader.VerifyHash(destPath, hash); err != nil {
 				s.state.Status = update.StatusError
 				s.state.Error = "Hash verification failed: " + err.Error()
 				s.emitState()
@@ -253,7 +268,15 @@ func (s *UpdateService) SkipVersion() {
 	defer s.mu.Unlock()
 
 	if s.state.Status == update.StatusAvailable || s.state.Status == update.StatusError {
-		// Logic to persist skip choice would go here
+		versionToSkip := s.state.LatestVersion
+		if versionToSkip == "" && s.state.UpdateInfo != nil {
+			versionToSkip = s.state.UpdateInfo.Version
+		}
+		if versionToSkip != "" {
+			s.skippedVersion = versionToSkip
+			_ = s.persistSkippedVersion(versionToSkip)
+		}
+
 		s.state.Status = update.StatusNone
 		s.emitState()
 	}
@@ -273,6 +296,41 @@ func (s *UpdateService) emitState() {
 	if s.ctx != nil {
 		wailsRuntime.EventsEmit(s.ctx, "update:state", s.state)
 	}
+}
+
+// loadSkippedVersion reads persisted skipped version if present.
+func (s *UpdateService) loadSkippedVersion() {
+	path, err := skipVersionFilePath()
+	if err != nil {
+		return
+	}
+	data, err := os.ReadFile(path) //nolint:gosec // path controlled
+	if err != nil {
+		return
+	}
+	version := strings.TrimSpace(string(data))
+	if version != "" {
+		s.skippedVersion = version
+	}
+}
+
+func (s *UpdateService) persistSkippedVersion(version string) error {
+	path, err := skipVersionFilePath()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(version), fs.FileMode(0o600))
+}
+
+func skipVersionFilePath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configDir, "FreelanceFlow", "update", "skipped_version"), nil
 }
 
 func contains404(err error) bool {

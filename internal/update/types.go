@@ -10,6 +10,7 @@ type Info struct {
 	ReleaseNotes    string              `json:"releaseNotes"`
 	ReleaseNotesURL string              `json:"releaseNotesUrl,omitempty"`
 	Mandatory       bool                `json:"mandatory"`
+	MinimumOSVersion map[string]string  `json:"minimumOsVersion,omitempty"`
 	Platforms       map[string]Platform `json:"platforms"`
 }
 

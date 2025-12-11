@@ -12,6 +12,8 @@ const isAuthLayout = computed(() => route.meta.layout === 'auth')
 const updateStore = useUpdateStore()
 
 onMounted(() => {
+  // Initialize update event listeners first so state/Progress events are received
+  updateStore.init()
   // Check for update on app launch (or fetch status if backend already checked)
   updateStore.checkForUpdate()
 })

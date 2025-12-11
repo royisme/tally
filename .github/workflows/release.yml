@@ -14,11 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
-      
+          go-version: "1.25.4"
+
       - uses: oven-sh/setup-bun@v1
 
       - name: Install Wails
@@ -42,23 +42,20 @@ jobs:
           bun run check
 
   build-and-package:
-    name: Build & Package
+    name: Build & Package (macOS)
     needs: lint-and-test
     runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
-          check-latest: true
+          go-version: "1.25.4"
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
@@ -68,55 +65,7 @@ jobs:
       - name: Install create-dmg
         run: npm install --global create-dmg
 
-      - name: Build macOS (AMD64)
-        run: |
-          wails build -platform darwin/amd64 -ldflags "-X freelance-flow/internal/update.CurrentVersion=${{ github.ref_name }}"
-
-      - name: Build macOS (ARM64)
-        run: |
-          wails build -platform darwin/arm64 -ldflags "-X freelance-flow/internal/update.CurrentVersion=${{ github.ref_name }}"
-
-      # Ad-hoc Signing (Required for ARM64 even for self-dist, keeps things clean)
-      - name: Ad-hoc Sign
-        run: |
-          codesign --force --deep --sign - build/bin/FreelanceFlow.app
-          # Note: Separate builds overwrite the same .app output in build/bin usually unless renamed.
-          # Wails standard build puts it in build/bin/FreelanceFlow.app
-          # We need to handle the two architectures.
-          # Let's adjust the build step to rename immediately or use -output flag if supported easily, 
-          # or simply mv the output.
-
-      # Correction: Wails build overwrites. We should build one, package, then build other.
-      # Let's Refactor steps for correct packaging.
-
-  build-and-package:
-    name: Build & Package
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.21"
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-      - name: Install create-dmg
-        run: npm install --global create-dmg
-
-      - name: Copy wails.json to ensure correct version
-        # wails.json version might be old, we should rely on ldflags for binary version
-        # but create-dmg might read Info.plist. Wails updates Info.plist from wails.json.
-        # We might need to patch wails.json version before build if we want Info.plist to match tag.
+      - name: Sync version to wails.json
         run: |
           VERSION=${GITHUB_REF_NAME#v}
           sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" wails.json
@@ -127,22 +76,17 @@ jobs:
             -ldflags "-X freelance-flow/internal/update.CurrentVersion=${{ github.ref_name }}" \
             -clean
 
-      - name: Sign App
+      - name: Ad-hoc Sign
         run: codesign --force --deep --sign - build/bin/FreelanceFlow.app
 
       - name: Create DMG
         run: |
           VERSION=${GITHUB_REF_NAME#v}
           DMG_NAME="FreelanceFlow-${VERSION}-darwin-${{ matrix.arch }}.dmg"
-          create-dmg \
-            --overwrite \
-            --width 600 \
-            --height 400 \
+          create-dmg --overwrite --width 600 --height 400 \
             --app-drop-link 450 200 \
             --icon "FreelanceFlow.app" 150 200 \
-            "$DMG_NAME" \
-            "build/bin/FreelanceFlow.app"
-
+            "$DMG_NAME" "build/bin/FreelanceFlow.app"
           mkdir -p release-artifacts
           mv "$DMG_NAME" release-artifacts/
 
@@ -157,13 +101,11 @@ jobs:
     needs: build-and-package
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.25.4"
 
       - name: Download Artifacts
         uses: actions/download-artifact@v4
@@ -173,8 +115,6 @@ jobs:
 
       - name: Generate update.json
         run: |
-          # The artifacts are now in 'artifacts/' directory
-          # We need to run our gen-update-info tool
           VERSION=${GITHUB_REF_NAME#v}
           go run cmd/gen-update-info/main.go \
             -version "$VERSION" \

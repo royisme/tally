@@ -41,6 +41,27 @@ func Init() *sql.DB {
 	return db
 }
 
+// Open opens the application database without running migrations.
+func Open() (*sql.DB, string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, "", err
+	}
+
+	appDataDir := filepath.Join(homeDir, ".freelance-flow")
+	if err := os.MkdirAll(appDataDir, 0700); err != nil {
+		return nil, "", err
+	}
+
+	dbPath := filepath.Join(appDataDir, "freelance.db")
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return db, dbPath, nil
+}
+
 func createTables(db *sql.DB) {
 	queries := []string{
 		// Users table - must be created first for foreign key references

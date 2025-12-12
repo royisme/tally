@@ -2,7 +2,7 @@
 import { h, onMounted, ref } from 'vue'
 import {
   NButton, NDataTable, NTag, NSpace, NText, NNumberAnimation, NStatistic, NCard,
-  NModal,
+  NModal, NInput,
   type DataTableColumns, useMessage
 } from 'naive-ui'
 import PageContainer from '@/components/PageContainer.vue'
@@ -12,7 +12,7 @@ import { useClientStore } from '@/stores/clients'
 import { useTimesheetStore } from '@/stores/timesheet'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
-import type { Invoice } from '@/types'
+import type { Invoice, TimeEntry, Project } from '@/types'
 import { PlusOutlined, DownloadOutlined, FileTextOutlined, DollarOutlined, MailOutlined } from '@vicons/antd'
 
 const message = useMessage()
@@ -31,6 +31,11 @@ const entrySelection = ref<number[]>([])
 const activeInvoiceId = ref<number | null>(null)
 const pdfLoading = ref(false)
 const sendLoading = ref(false)
+const messageModalVisible = ref(false)
+const messageDraft = ref("")
+const exportingInvoice = ref<EnrichedInvoice | null>(null)
+
+type EntryRow = TimeEntry & { project?: Project }
 
 function handleNewInvoice() {
   editingInvoice.value = null
@@ -60,15 +65,33 @@ async function applyEntrySelection() {
 async function handleDownload(invoice: EnrichedInvoice) {
   try {
     pdfLoading.value = true
-    const base64 = await invoiceStore.generatePdf(invoice.id)
+    exportingInvoice.value = invoice
+    messageDraft.value = await invoiceStore.getDefaultMessage(invoice.id)
+    messageModalVisible.value = true
+  } catch {
+    message.error(t('invoices.downloadError'))
+  } finally {
+    pdfLoading.value = false
+  }
+}
+
+async function confirmDownload() {
+  if (!exportingInvoice.value) return
+  try {
+    pdfLoading.value = true
+    const base64 = await invoiceStore.generatePdf(
+      exportingInvoice.value.id,
+      messageDraft.value
+    )
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
     const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
     const a = document.createElement('a')
     a.href = url
-    a.download = `INV-${invoice.number}.pdf`
+    a.download = `INV-${exportingInvoice.value.number}.pdf`
     a.click()
     URL.revokeObjectURL(url)
     message.success(t('invoices.downloaded'))
+    messageModalVisible.value = false
   } catch {
     message.error(t('invoices.downloadError'))
   } finally {
@@ -239,28 +262,45 @@ const columns: DataTableColumns<EnrichedInvoice> = [
     <n-data-table :columns="columns" :data="enrichedInvoices" :loading="loading" :bordered="false"
       class="invoice-table" />
 
-  <n-modal v-model:show="entrySelectorVisible" preset="dialog" title="Select Time Entries" style="width: 720px">
-    <n-data-table
-      :loading="timesLoading"
-      :columns="[
-        { title: 'Date', key: 'date' },
-        { title: 'Project', key: 'project', render: (row: any) => row.project?.name || '-' },
-        { title: 'Hours', key: 'hours', render: (row: any) => (row.durationSeconds / 3600).toFixed(2) },
-        { title: 'Linked', key: 'linked', render: (row: any) => (row.invoiceId ? '✔' : '') }
-      ]"
-      :data="enrichedEntries.filter((e) => !activeInvoiceId || e.invoiceId === activeInvoiceId || !e.invoiceId)"
-      :row-key="(row: any) => row.id"
-      checkable
-      :checked-row-keys="entrySelection"
-      @update:checked-row-keys="(keys: number[]) => entrySelection = keys"
-    />
-    <template #action>
-      <n-space justify="end">
-        <n-button quaternary @click="entrySelectorVisible = false">Cancel</n-button>
-        <n-button type="primary" :loading="loading" @click="applyEntrySelection">Apply</n-button>
-      </n-space>
-    </template>
-  </n-modal>
+    <n-modal v-model:show="entrySelectorVisible" preset="dialog" title="Select Time Entries" style="width: 720px">
+      <n-data-table
+        :loading="timesLoading"
+        :columns="[
+          { title: 'Date', key: 'date' },
+          { title: 'Project', key: 'project', render: (row: EntryRow) => row.project?.name || '-' },
+          { title: 'Hours', key: 'hours', render: (row: EntryRow) => (row.durationSeconds / 3600).toFixed(2) },
+          { title: 'Linked', key: 'linked', render: (row: EntryRow) => (row.invoiceId ? '✔' : '') }
+        ]"
+        :data="enrichedEntries.filter((e) => !activeInvoiceId || e.invoiceId === activeInvoiceId || !e.invoiceId)"
+        :row-key="(row: EntryRow) => row.id"
+        checkable
+        :checked-row-keys="entrySelection"
+        @update:checked-row-keys="(keys: number[]) => entrySelection = keys"
+      />
+      <template #action>
+        <n-space justify="end">
+          <n-button quaternary @click="entrySelectorVisible = false">Cancel</n-button>
+          <n-button type="primary" :loading="loading" @click="applyEntrySelection">Apply</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <n-modal
+      v-model:show="messageModalVisible"
+      preset="dialog"
+      title="Edit MESSAGE"
+      positive-text="Export PDF"
+      negative-text="Cancel"
+      :loading="pdfLoading"
+      @positive-click="confirmDownload"
+    >
+      <n-input
+        v-model:value="messageDraft"
+        type="textarea"
+        :autosize="{ minRows: 4, maxRows: 8 }"
+        placeholder="MESSAGE to include in PDF"
+      />
+    </n-modal>
   </PageContainer>
 </template>
 

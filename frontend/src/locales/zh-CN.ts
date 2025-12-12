@@ -54,6 +54,7 @@ export default {
     language: "界面语言",
     currency: "默认货币",
     province: "省份/地区（用于税率）",
+    timezone: "时区",
   },
 
   // 导航

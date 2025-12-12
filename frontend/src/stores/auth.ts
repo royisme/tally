@@ -107,6 +107,10 @@ export const useAuthStore = defineStore("auth", () => {
     localStorage.removeItem("currentUserId");
   }
 
+  function clearError() {
+    error.value = null;
+  }
+
   function switchUser() {
     // Clear current session but keep users list (logic is same as logout basically)
     currentUser.value = null;
@@ -130,6 +134,7 @@ export const useAuthStore = defineStore("auth", () => {
     register,
     login,
     logout,
+    clearError,
     switchUser,
     fetchAllUsers,
   };

@@ -98,6 +98,10 @@ export const useInvoiceStore = defineStore("invoices", () => {
     }
   }
 
+  async function getDefaultMessage(id: number) {
+    return api.invoices.getDefaultMessage(id);
+  }
+
   async function generatePdf(id: number, message?: string) {
     return api.invoices.generatePdf(id, message);
   }
@@ -116,6 +120,7 @@ export const useInvoiceStore = defineStore("invoices", () => {
     updateInvoice,
     deleteInvoice,
     setTimeEntries,
+    getDefaultMessage,
     generatePdf,
     sendEmail,
   };

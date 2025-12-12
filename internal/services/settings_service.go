@@ -79,9 +79,6 @@ func normalizeUserSettings(settings models.UserSettings) models.UserSettings {
 	if settings.Theme == "" {
 		settings.Theme = "light"
 	}
-	if settings.InvoiceTerms == "" {
-		settings.InvoiceTerms = "Due upon receipt"
-	}
 
 	settings.SenderName = trim(settings.SenderName)
 	settings.SenderCompany = trim(settings.SenderCompany)
@@ -89,7 +86,15 @@ func normalizeUserSettings(settings models.UserSettings) models.UserSettings {
 	settings.SenderPhone = trim(settings.SenderPhone)
 	settings.SenderEmail = trim(settings.SenderEmail)
 	settings.SenderPostalCode = trim(settings.SenderPostalCode)
+	settings.InvoiceTerms = trim(settings.InvoiceTerms)
 	settings.DefaultMessageTemplate = trim(settings.DefaultMessageTemplate)
+
+	if settings.InvoiceTerms == "" {
+		settings.InvoiceTerms = "Due upon receipt"
+	}
+	if settings.DefaultMessageTemplate == "" {
+		settings.DefaultMessageTemplate = "Thank you for your business."
+	}
 
 	return settings
 }
@@ -104,6 +109,6 @@ func defaultUserSettings() models.UserSettings {
 		DateFormat:             "2006-01-02",
 		Timezone:               "UTC",
 		InvoiceTerms:           "Due upon receipt",
-		DefaultMessageTemplate: "",
+		DefaultMessageTemplate: "Thank you for your business.",
 	}
 }

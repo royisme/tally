@@ -219,9 +219,13 @@ async function handleDelete(id: number) {
   }
 }
 
-function handleContinueTimer(entry: TimeEntry & { project?: { name: string } }) {
-  message.info(`Continue tracking: ${entry.project?.name || 'Unknown project'}`)
-  // TODO: Implement continue timer via store action
+async function handleContinueTimer(entry: TimeEntry & { project?: { name: string } }) {
+  try {
+    await timesheetStore.continueTimer(entry)
+    message.success(`Started tracking: ${entry.project?.name || 'Unknown project'}`)
+  } catch {
+    message.error('Failed to start timer')
+  }
 }
 
 // Form handlers
@@ -274,8 +278,12 @@ async function handleQuickEntry(data: { projectId: number; description: string; 
 }
 
 function handleExportCSV() {
-  message.info('Export CSV - Coming soon')
-  // TODO: Implement CSV export
+  try {
+    timesheetStore.exportToCSV(timesheetStore.enrichedEntries)
+    message.success('CSV exported successfully')
+  } catch {
+    message.error('Failed to export CSV')
+  }
 }
 
 function handleCheckedRowKeysChange(keys: Array<string | number>) {

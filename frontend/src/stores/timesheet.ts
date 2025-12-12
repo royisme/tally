@@ -68,6 +68,71 @@ export const useTimesheetStore = defineStore("timesheet", () => {
     }
   }
 
+  // Continue Timer - creates a new time entry with same project and description
+  async function continueTimer(entry: TimeEntry & { project?: Project }) {
+    loading.value = true;
+    try {
+      await api.timeEntries.create({
+        projectId: entry.projectId,
+        description: entry.description,
+        date: new Date().toISOString().split('T')[0],
+        startTime: '',
+        endTime: '',
+        durationSeconds: 0,
+        billable: entry.billable,
+        invoiced: false,
+      });
+      await fetchTimesheet();
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // CSV Export - exports all entries to CSV format
+  function exportToCSV(enrichedEntries: EnrichedTimeEntry[]) {
+    const headers = [
+      'Date',
+      'Project',
+      'Description',
+      'Start Time',
+      'End Time',
+      'Duration (hours)',
+      'Billable',
+      'Invoiced',
+    ];
+
+    const rows = enrichedEntries.map((entry) => {
+      const durationHours = (entry.durationSeconds / 3600).toFixed(2);
+      return [
+        entry.date,
+        entry.project?.name || 'Unknown Project',
+        entry.description || '',
+        entry.startTime || '',
+        entry.endTime || '',
+        durationHours,
+        entry.billable ? 'Yes' : 'No',
+        entry.invoiced ? 'Yes' : 'No',
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `timesheet-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   // Getters (Computed)
 
   // Enriched Entry type for views that need project info
@@ -109,6 +174,7 @@ export const useTimesheetStore = defineStore("timesheet", () => {
 
   return {
     entries,
+    enrichedEntries,
     groupedByDay,
     totalHours,
     loading,
@@ -116,5 +182,7 @@ export const useTimesheetStore = defineStore("timesheet", () => {
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
+    continueTimer,
+    exportToCSV,
   };
 });

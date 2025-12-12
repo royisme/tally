@@ -12,7 +12,11 @@ import (
 func TestInvoiceEmailSettingsService_GetAndUpdate(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("failed to close db: %v", err)
+		}
+	}()
 
 	_, err = db.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT);`)
 	assert.NoError(t, err)

@@ -13,7 +13,11 @@ import (
 func TestInvoiceService_SetTimeEntries_RecalculateTotals(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	assert.NoError(t, err)
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("failed to close db: %v", err)
+		}
+	}()
 
 	schema := []string{
 		`CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT, username TEXT, password_hash TEXT, settings_json TEXT DEFAULT '{}');`,

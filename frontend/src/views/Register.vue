@@ -29,8 +29,12 @@ const registerError = ref<string | null>(null)
 
 // Financial preferences
 const selectedLanguage = ref(locale.value || 'zh-CN')
-const selectedCurrency = ref('CAD')
-const selectedProvince = ref('ON')
+const selectedCurrency = ref('USD')
+const selectedTimezone = ref(
+  (typeof Intl !== "undefined" &&
+    Intl.DateTimeFormat().resolvedOptions().timeZone) ||
+    "UTC"
+)
 
 // Language options
 const languageOptions = [
@@ -46,19 +50,12 @@ const currencyOptions = [
   { label: 'EUR - Euro', value: 'EUR' },
 ]
 
-// Canadian provinces for tax rates
-const provinceOptions = [
-  { label: 'Ontario (ON) - HST 13%', value: 'ON' },
-  { label: 'British Columbia (BC) - GST 5% + PST 7%', value: 'BC' },
-  { label: 'Alberta (AB) - GST 5%', value: 'AB' },
-  { label: 'Quebec (QC) - GST 5% + QST 9.975%', value: 'QC' },
-  { label: 'Manitoba (MB) - GST 5% + PST 7%', value: 'MB' },
-  { label: 'Saskatchewan (SK) - GST 5% + PST 6%', value: 'SK' },
-  { label: 'Nova Scotia (NS) - HST 15%', value: 'NS' },
-  { label: 'New Brunswick (NB) - HST 15%', value: 'NB' },
-  { label: 'Newfoundland (NL) - HST 15%', value: 'NL' },
-  { label: 'PEI - HST 15%', value: 'PE' },
-  { label: 'Other / Non-Canada', value: 'OTHER' },
+const timezoneOptions = [
+  { label: "UTC", value: "UTC" },
+  { label: "Asia/Shanghai", value: "Asia/Shanghai" },
+  { label: "America/Toronto", value: "America/Toronto" },
+  { label: "America/New_York", value: "America/New_York" },
+  { label: "Europe/London", value: "Europe/London" },
 ]
 
 // Computed avatar URL using DiceBear
@@ -102,7 +99,7 @@ async function handleRegister() {
     const settings = {
       language: selectedLanguage.value,
       currency: selectedCurrency.value,
-      province: selectedProvince.value,
+      timezone: selectedTimezone.value,
       theme: appStore.theme,
     }
 
@@ -113,9 +110,6 @@ async function handleRegister() {
       avatarUrl: avatarUrl.value,
       settingsJson: JSON.stringify(settings),
     })
-
-    // Store settings in localStorage for now (until backend integration)
-    localStorage.setItem('userSettings', JSON.stringify(settings))
 
     router.push('/dashboard')
   } catch (e) {
@@ -226,8 +220,13 @@ function goBack() {
             <n-select v-model:value="selectedCurrency" :options="currencyOptions" size="large" />
           </n-form-item>
 
-          <n-form-item :label="t('auth.province')">
-            <n-select v-model:value="selectedProvince" :options="provinceOptions" size="large" />
+          <n-form-item :label="t('auth.timezone')">
+            <n-select
+              v-model:value="selectedTimezone"
+              :options="timezoneOptions"
+              size="large"
+              filterable
+            />
           </n-form-item>
         </div>
 

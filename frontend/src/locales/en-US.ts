@@ -54,6 +54,7 @@ export default {
     language: "Language",
     currency: "Currency",
     province: "Province/Region (for tax)",
+    timezone: "Timezone",
   },
 
   // Navigation

@@ -16,6 +16,7 @@ import * as WailsInvoiceEmailSettingsService from "@/wailsjs/go/services/Invoice
 import { useAuthStore } from "@/stores/auth";
 import { dto } from "@/wailsjs/go/models";
 import type { InvoiceEmailSettings } from "@/types";
+import type { ReportFilter, ReportOutput } from "@/types";
 import type {
   IClientService,
   IProjectService,
@@ -74,6 +75,18 @@ const wailsInvoiceService: IInvoiceService = {
   create: (input) => WailsInvoiceService.Create(getUserId(), input),
   update: (input) => WailsInvoiceService.Update(getUserId(), input),
   delete: (id) => WailsInvoiceService.Delete(getUserId(), id),
+  getDefaultMessage: (id) => {
+    const wails = window as unknown as {
+      go: {
+        services: {
+          InvoiceService: {
+            GetDefaultMessage: (userId: number, invoiceId: number) => Promise<string>;
+          };
+        };
+      };
+    };
+    return wails.go.services.InvoiceService.GetDefaultMessage(getUserId(), id);
+  },
   generatePdf: (id, message) =>
     WailsInvoiceService.GeneratePDF(getUserId(), id, message ?? ""),
   sendEmail: (id) => WailsInvoiceService.SendEmail(getUserId(), id),
@@ -85,6 +98,21 @@ const wailsSettingsService = {
   get: () => WailsSettingsService.Get(getUserId()),
   update: (input: dto.UserSettings) =>
     WailsSettingsService.Update(getUserId(), input),
+};
+
+const wailsReportService = {
+  get: (filter: ReportFilter) => {
+    const wails = window as unknown as {
+      go: {
+        services: {
+          ReportService: {
+            Get: (userId: number, f: ReportFilter) => Promise<ReportOutput>;
+          };
+        };
+      };
+    };
+    return wails.go.services.ReportService.Get(getUserId(), filter);
+  },
 };
 
 const wailsInvoiceEmailSettingsService = {
@@ -109,13 +137,13 @@ export const api = isWailsRuntime
       timeEntries: wailsTimeEntryService,
       invoices: wailsInvoiceService,
       settings: wailsSettingsService,
+      reports: wailsReportService,
       invoiceEmailSettings: wailsInvoiceEmailSettingsService,
     }
   : {
       clients: mockClientService,
       projects: mockProjectService,
       timeEntries: mockTimeEntryService,
-      invoices: mockInvoiceService,
       settings: {
         get: async () => ({
           currency: "USD",
@@ -131,9 +159,21 @@ export const api = isWailsRuntime
           senderEmail: "",
           senderPostalCode: "",
           invoiceTerms: "Due upon receipt",
-          defaultMessageTemplate: "",
+          defaultMessageTemplate: "Thank you for your business.",
         }),
         update: async (input: dto.UserSettings) => input,
+      },
+      reports: {
+        get: async () => ({
+          totalHours: 0,
+          totalIncome: 0,
+          rows: [],
+          chart: { dates: [], revenue: [], hours: [] },
+        }),
+      },
+      invoices: {
+        ...mockInvoiceService,
+        getDefaultMessage: async () => "Thank you for your business.",
       },
       invoiceEmailSettings: {
         get: async () => mockEmailSettings,

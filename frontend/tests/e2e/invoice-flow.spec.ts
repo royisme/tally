@@ -1,21 +1,19 @@
 import { test, expect } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+import { baseURL, isDevServerReachable, hasWailsRuntime } from "./helpers";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5173";
 let reachable = false;
 
 test.beforeAll(async ({ request }) => {
-  try {
-    const res = await request.get(baseURL);
-    reachable = res.ok();
-  } catch {
-    reachable = false;
-  }
+  reachable = await isDevServerReachable(request);
 });
 
 test("invoice flow: select time entries, export pdf, trigger send", async ({
   page,
 }) => {
   test.skip(!reachable, "dev server not running at baseURL");
+  const wails = await hasWailsRuntime(page);
+  test.skip(!wails, "Wails runtime not available for auth/export");
 
   await page.goto(baseURL);
 
@@ -35,8 +33,20 @@ test("invoice flow: select time entries, export pdf, trigger send", async ({
   // apply selection
   await page.getByRole("button", { name: /apply/i }).click();
 
-  // download PDF
+  // download PDF, assert filename and header
   await firstRow.getByRole("button").first().click();
+  const exportBtn = page.getByRole("button", { name: /export pdf/i });
+  if (await exportBtn.isVisible()) {
+    const downloadPromise = page.waitForEvent("download");
+    await exportBtn.click();
+    const download = await downloadPromise;
+    await expect(download.suggestedFilename()).toMatch(/^INV-.*\.pdf$/);
+    const path = await download.path();
+    if (path) {
+      const file = await readFile(path);
+      await expect(file.subarray(0, 4).toString()).toBe("%PDF");
+    }
+  }
 
   // trigger send
   await firstRow.getByRole("button").nth(2).click();

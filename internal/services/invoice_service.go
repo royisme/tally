@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"crypto/tls"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -10,8 +11,11 @@ import (
 	"freelance-flow/internal/mapper"
 	"freelance-flow/internal/models"
 	"log"
+	"net/smtp"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-pdf/fpdf"
 	"github.com/resend/resend-go/v3"
@@ -210,7 +214,54 @@ func (s *InvoiceService) SendEmail(userID int, invoiceID int) bool {
 		return true
 	}
 
-	// TODO: SMTP provider can be added similarly.
+	// SMTP provider
+	if emailSettings.Provider == "smtp" {
+		// Validate SMTP settings
+		if emailSettings.SMTPHost == "" {
+			log.Println("SendEmail: SMTP host missing")
+			return false
+		}
+		if emailSettings.SMTPUsername == "" {
+			log.Println("SendEmail: SMTP username missing")
+			return false
+		}
+		if emailSettings.SMTPPassword == "" {
+			log.Println("SendEmail: SMTP password missing")
+			return false
+		}
+		if emailSettings.FromEmail == "" {
+			log.Println("SendEmail: from email missing")
+			return false
+		}
+
+		subject := applyTemplate(emailSettings.SubjectTemplate, invoice)
+		if subject == "" {
+			subject = fmt.Sprintf("Invoice %s", invoice.Number)
+		}
+		body := applyTemplate(emailSettings.BodyTemplate, invoice)
+		if body == "" {
+			body = "Please see attached invoice."
+		}
+
+		// Add signature if provided
+		if emailSettings.Signature != "" {
+			body += "\n\n" + emailSettings.Signature
+		}
+
+		if os.Getenv("SMTP_DRY_RUN") == "1" {
+			log.Println("SendEmail: SMTP_DRY_RUN enabled, skipping network call")
+			return true
+		}
+
+		// Send email via SMTP
+		success := s.sendViaSMTP(emailSettings, client.Email, subject, body, pdfBytes, invoice.Number)
+		if !success {
+			log.Println("SendEmail: SMTP send failed")
+			return false
+		}
+		return true
+	}
+
 	return false
 }
 
@@ -285,6 +336,18 @@ func (s *InvoiceService) GeneratePDF(userID int, invoiceID int, message string) 
 	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
 }
 
+// GetDefaultMessage exposes the default MESSAGE generation for frontend preview.
+func (s *InvoiceService) GetDefaultMessage(userID int, invoiceID int) (string, error) {
+	settings, err := s.getUserSettings(userID)
+	if err != nil {
+		log.Println("Falling back to default settings due to error:", err)
+	}
+	if _, err := s.Get(userID, invoiceID); err != nil {
+		return "", fmt.Errorf("invoice not found: %w", err)
+	}
+	return s.buildDefaultMessage(userID, invoiceID, settings), nil
+}
+
 // getClient fetches client detail for invoices.
 func (s *InvoiceService) getClient(userID int, clientID int) (models.Client, error) {
 	row := s.db.QueryRow("SELECT id, name, email, website, avatar, contact_person, address, currency, status, notes FROM clients WHERE id = ? AND user_id = ?", clientID, userID)
@@ -348,6 +411,55 @@ ORDER BY date ASC, start_time ASC`
 	return strings.Join(lines, "\n")
 }
 
+func formatAmount(amount float64, currency string) string {
+	return fmt.Sprintf("%.2f %s", amount, currency)
+}
+
+func formatDate(raw string, settings models.UserSettings) string {
+	if raw == "" {
+		return ""
+	}
+	layouts := []string{"2006-01-02", time.RFC3339}
+	var parsed time.Time
+	var err error
+	for _, l := range layouts {
+		parsed, err = time.Parse(l, raw)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return raw
+	}
+	loc, locErr := time.LoadLocation(settings.Timezone)
+	if locErr == nil {
+		parsed = parsed.In(loc)
+	}
+	if settings.DateFormat == "" {
+		settings.DateFormat = "2006-01-02"
+	}
+	return parsed.Format(settings.DateFormat)
+}
+
+func loadPDFFonts(pdf *fpdf.Fpdf) (bool, bool) {
+	fontDir := "fonts"
+	robotoPath := filepath.Join(fontDir, "Roboto-Regular.ttf")
+	notoPath := filepath.Join(fontDir, "NotoSansSC-Regular.ttf")
+	hasRoboto := false
+	hasNoto := false
+	// #nosec G304 -- font paths are fixed under app-controlled fonts dir.
+	if data, err := os.ReadFile(robotoPath); err == nil {
+		pdf.AddUTF8FontFromBytes("Roboto", "", data)
+		hasRoboto = true
+	}
+	// #nosec G304 -- font paths are fixed under app-controlled fonts dir.
+	if data, err := os.ReadFile(notoPath); err == nil {
+		pdf.AddUTF8FontFromBytes("NotoSansSC", "", data)
+		hasNoto = true
+	}
+	return hasRoboto, hasNoto
+}
+
 // ensureInvoiceRecalcForPDF recalculates invoice totals/items from linked time entries if present.
 func (s *InvoiceService) ensureInvoiceRecalcForPDF(userID int, invoice dto.InvoiceOutput, _ models.UserSettings) dto.InvoiceOutput {
 	updated, err := s.recalculateInvoiceFromTimeEntries(userID, invoice.ID, invoice.TaxRate)
@@ -363,16 +475,23 @@ func (s *InvoiceService) renderPDF(invoice dto.InvoiceOutput, client models.Clie
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(15, 20, 15)
 	pdf.AddPage()
+	hasRoboto, hasNoto := loadPDFFonts(pdf)
+	baseFont := "Helvetica"
+	if hasNoto {
+		baseFont = "NotoSansSC"
+	} else if hasRoboto {
+		baseFont = "Roboto"
+	}
 
 	headerFill := func() {
 		pdf.SetFillColor(51, 51, 51)
 		pdf.Rect(0, 0, 210, 35, "F")
 		pdf.SetTextColor(255, 255, 255)
-		pdf.SetFont("Helvetica", "B", 28)
+		pdf.SetFont(baseFont, "B", 28)
 		pdf.SetXY(150, 12)
 		pdf.CellFormat(50, 10, "INVOICE", "", 0, "R", false, 0, "")
 
-		pdf.SetFont("Helvetica", "", 11)
+		pdf.SetFont(baseFont, "", 11)
 		pdf.SetXY(15, 12)
 		senderName := settings.SenderName
 		if senderName == "" {
@@ -399,15 +518,15 @@ func (s *InvoiceService) renderPDF(invoice dto.InvoiceOutput, client models.Clie
 
 	sectionInvoiceInfo := func() {
 		pdf.Ln(10)
-		pdf.SetFont("Helvetica", "B", 11)
+		pdf.SetFont(baseFont, "B", 11)
 		pdf.CellFormat(90, 6, "INVOICE TO "+strings.ToUpper(client.Name), "", 0, "L", false, 0, "")
 		pdf.CellFormat(90, 6, fmt.Sprintf("INVOICE# %s", invoice.Number), "", 1, "R", false, 0, "")
 
-		pdf.SetFont("Helvetica", "", 10)
+		pdf.SetFont(baseFont, "", 10)
 		pdf.CellFormat(90, 6, client.Address, "", 0, "L", false, 0, "")
 		rightY := pdf.GetY()
 		pdf.SetXY(105, rightY)
-		pdf.CellFormat(90, 6, fmt.Sprintf("DATE %s", invoice.IssueDate), "", 1, "R", false, 0, "")
+		pdf.CellFormat(90, 6, fmt.Sprintf("DATE %s", formatDate(invoice.IssueDate, settings)), "", 1, "R", false, 0, "")
 
 		pdf.CellFormat(90, 6, fmt.Sprintf("%s %s", client.ContactPerson, client.Email), "", 0, "L", false, 0, "")
 		pdf.SetXY(105, pdf.GetY()-6)
@@ -415,7 +534,7 @@ func (s *InvoiceService) renderPDF(invoice dto.InvoiceOutput, client models.Clie
 		if due == "" {
 			due = "DUE DATE"
 		}
-		pdf.CellFormat(90, 6, fmt.Sprintf("DUE DATE %s", due), "", 1, "R", false, 0, "")
+		pdf.CellFormat(90, 6, fmt.Sprintf("DUE DATE %s", formatDate(due, settings)), "", 1, "R", false, 0, "")
 
 		pdf.SetXY(105, pdf.GetY()-6)
 		pdf.CellFormat(90, 6, fmt.Sprintf("TERMS %s", settings.InvoiceTerms), "", 1, "R", false, 0, "")
@@ -425,14 +544,14 @@ func (s *InvoiceService) renderPDF(invoice dto.InvoiceOutput, client models.Clie
 	tableItems := func() {
 		pdf.SetFillColor(12, 168, 67)
 		pdf.SetTextColor(255, 255, 255)
-		pdf.SetFont("Helvetica", "B", 10)
+		pdf.SetFont(baseFont, "B", 10)
 		pdf.CellFormat(100, 8, "DESCRIPTION", "1", 0, "L", true, 0, "")
 		pdf.CellFormat(30, 8, "QTY", "1", 0, "C", true, 0, "")
 		pdf.CellFormat(30, 8, "RATE", "1", 0, "C", true, 0, "")
 		pdf.CellFormat(30, 8, "AMOUNT", "1", 1, "C", true, 0, "")
 
 		pdf.SetTextColor(0, 0, 0)
-		pdf.SetFont("Helvetica", "", 10)
+		pdf.SetFont(baseFont, "", 10)
 		description := "Invoice Summary"
 		if len(invoice.Items) > 0 && invoice.Items[0].Description != "" {
 			description = invoice.Items[0].Description
@@ -450,24 +569,24 @@ func (s *InvoiceService) renderPDF(invoice dto.InvoiceOutput, client models.Clie
 
 		pdf.CellFormat(100, 10, description, "1", 0, "L", false, 0, "")
 		pdf.CellFormat(30, 10, fmt.Sprintf("%.2f", qty), "1", 0, "C", false, 0, "")
-		pdf.CellFormat(30, 10, fmt.Sprintf("%.2f %s", rate, settings.Currency), "1", 0, "C", false, 0, "")
-		pdf.CellFormat(30, 10, fmt.Sprintf("%.2f %s", amount, settings.Currency), "1", 1, "C", false, 0, "")
+		pdf.CellFormat(30, 10, formatAmount(rate, settings.Currency), "1", 0, "C", false, 0, "")
+		pdf.CellFormat(30, 10, formatAmount(amount, settings.Currency), "1", 1, "C", false, 0, "")
 	}
 
 	totalSection := func() {
 		pdf.Ln(4)
 		startX := 110.0
 		pdf.SetXY(startX, pdf.GetY())
-		pdf.SetFont("Helvetica", "", 10)
+		pdf.SetFont(baseFont, "", 10)
 		rows := []struct {
 			label string
 			value string
 		}{
-			{"SUBTOTAL", fmt.Sprintf("%.2f %s", invoice.Subtotal, settings.Currency)},
+			{"SUBTOTAL", formatAmount(invoice.Subtotal, settings.Currency)},
 			{"DISCOUNT", "0"},
-			{"TAX", fmt.Sprintf("%.2f %s", invoice.TaxAmount, settings.Currency)},
-			{"TOTAL", fmt.Sprintf("%.2f %s", invoice.Total, settings.Currency)},
-			{"BALANCE DUE", fmt.Sprintf("%.2f %s", invoice.Total, settings.Currency)},
+			{"TAX", formatAmount(invoice.TaxAmount, settings.Currency)},
+			{"TOTAL", formatAmount(invoice.Total, settings.Currency)},
+			{"BALANCE DUE", formatAmount(invoice.Total, settings.Currency)},
 		}
 		for _, row := range rows {
 			pdf.CellFormat(40, 8, row.label, "", 0, "L", false, 0, "")
@@ -477,9 +596,9 @@ func (s *InvoiceService) renderPDF(invoice dto.InvoiceOutput, client models.Clie
 
 	messageSection := func() {
 		pdf.Ln(6)
-		pdf.SetFont("Helvetica", "B", 10)
+		pdf.SetFont(baseFont, "B", 10)
 		pdf.CellFormat(60, 6, "MESSAGE", "", 1, "L", false, 0, "")
-		pdf.SetFont("Helvetica", "", 10)
+		pdf.SetFont(baseFont, "", 10)
 		pdf.MultiCell(120, 6, message, "1", "L", false)
 	}
 
@@ -564,4 +683,177 @@ WHERE id = ? AND user_id = ?`,
 
 	// Return refreshed invoice dto
 	return s.Get(userID, invoiceID)
+}
+
+// sendViaSMTP sends email using SMTP protocol.
+func (s *InvoiceService) sendViaSMTP(
+	settings dto.InvoiceEmailSettings,
+	toEmail string,
+	subject string,
+	body string,
+	pdfBytes []byte,
+	invoiceNumber string,
+) bool {
+	// Setup SMTP auth
+	auth := smtp.PlainAuth(
+		"",
+		settings.SMTPUsername,
+		settings.SMTPPassword,
+		settings.SMTPHost,
+	)
+
+	// Create email message
+	headers := make(map[string]string)
+	headers["From"] = settings.FromEmail
+	headers["To"] = toEmail
+	headers["Subject"] = subject
+	headers["MIME-Version"] = "1.0"
+	headers["Content-Type"] = "multipart/mixed; boundary=boundary"
+
+	// Build message body
+	var message strings.Builder
+	for k, v := range headers {
+		message.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
+	}
+	message.WriteString("\r\n")
+
+	// Text part
+	message.WriteString("--boundary\r\n")
+	message.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+	message.WriteString("\r\n")
+	message.WriteString(body)
+	message.WriteString("\r\n")
+
+	// PDF attachment part
+	encodedPDF := base64.StdEncoding.EncodeToString(pdfBytes)
+	message.WriteString("--boundary\r\n")
+	message.WriteString("Content-Type: application/pdf\r\n")
+	message.WriteString("Content-Transfer-Encoding: base64\r\n")
+	message.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"INV-%s.pdf\"\r\n", invoiceNumber))
+	message.WriteString("\r\n")
+	// Split PDF into lines of 76 characters (RFC 2045)
+	for i := 0; i < len(encodedPDF); i += 76 {
+		end := i + 76
+		if end > len(encodedPDF) {
+			end = len(encodedPDF)
+		}
+		message.WriteString(encodedPDF[i:end] + "\r\n")
+	}
+	message.WriteString("--boundary--\r\n")
+
+	// Dial SMTP server
+	addr := fmt.Sprintf("%s:%d", settings.SMTPHost, settings.SMTPPort)
+
+	// Use TLS if specified
+	if settings.SMTPUseTLS {
+		tlsConfig := &tls.Config{
+			ServerName: settings.SMTPHost,
+			MinVersion: tls.VersionTLS12,
+		}
+		conn, err := tls.Dial("tcp", addr, tlsConfig)
+		if err != nil {
+			log.Printf("SMTP: TLS dial failed: %v", err)
+			return false
+		}
+		defer func() {
+			if err := conn.Close(); err != nil {
+				log.Printf("SMTP: TLS conn close failed: %v", err)
+			}
+		}()
+
+		client, err := smtp.NewClient(conn, settings.SMTPHost)
+		if err != nil {
+			log.Printf("SMTP: NewClient failed: %v", err)
+			return false
+		}
+		defer func() {
+			if err := client.Quit(); err != nil {
+				log.Printf("SMTP: Quit failed: %v", err)
+			}
+		}()
+
+		if err := client.Auth(auth); err != nil {
+			log.Printf("SMTP: Auth failed: %v", err)
+			return false
+		}
+
+		if err := client.Mail(settings.FromEmail); err != nil {
+			log.Printf("SMTP: Mail command failed: %v", err)
+			return false
+		}
+
+		if err := client.Rcpt(toEmail); err != nil {
+			log.Printf("SMTP: Rcpt command failed: %v", err)
+			return false
+		}
+
+		w, err := client.Data()
+		if err != nil {
+			log.Printf("SMTP: Data command failed: %v", err)
+			return false
+		}
+
+		if _, err := w.Write([]byte(message.String())); err != nil {
+			log.Printf("SMTP: Write failed: %v", err)
+			if closeErr := w.Close(); closeErr != nil {
+				log.Printf("SMTP: Close writer after write failure failed: %v", closeErr)
+			}
+			return false
+		}
+
+		if err := w.Close(); err != nil {
+			log.Printf("SMTP: Close writer failed: %v", err)
+			return false
+		}
+
+		return true
+	}
+
+	// Use plain SMTP without TLS
+	client, err := smtp.Dial(addr)
+	if err != nil {
+		log.Printf("SMTP: Dial failed: %v", err)
+		return false
+	}
+	defer func() {
+		if err := client.Quit(); err != nil {
+			log.Printf("SMTP: Quit failed: %v", err)
+		}
+	}()
+
+	if err := client.Auth(auth); err != nil {
+		log.Printf("SMTP: Auth failed: %v", err)
+		return false
+	}
+
+	if err := client.Mail(settings.FromEmail); err != nil {
+		log.Printf("SMTP: Mail command failed: %v", err)
+		return false
+	}
+
+	if err := client.Rcpt(toEmail); err != nil {
+		log.Printf("SMTP: Rcpt command failed: %v", err)
+		return false
+	}
+
+	w, err := client.Data()
+	if err != nil {
+		log.Printf("SMTP: Data command failed: %v", err)
+		return false
+	}
+
+	if _, err := w.Write([]byte(message.String())); err != nil {
+		log.Printf("SMTP: Write failed: %v", err)
+		if closeErr := w.Close(); closeErr != nil {
+			log.Printf("SMTP: Close writer after write failure failed: %v", closeErr)
+		}
+		return false
+	}
+
+	if err := w.Close(); err != nil {
+		log.Printf("SMTP: Close writer failed: %v", err)
+		return false
+	}
+
+	return true
 }

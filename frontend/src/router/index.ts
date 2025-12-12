@@ -62,6 +62,11 @@ const routes = [
     component: () => import("@/views/settings/InvoiceSettings.vue"),
     meta: { requiresAuth: true, layout: "main" },
   },
+  {
+    path: "/settings",
+    component: () => import("@/views/settings/UserSettings.vue"),
+    meta: { requiresAuth: true, layout: "main" },
+  },
 ];
 
 const router = createRouter({

@@ -8,8 +8,10 @@ import {
   HasUsers,
 } from "../wailsjs/go/services/AuthService";
 import { dto } from "../wailsjs/go/models";
+import { useAppStore } from "./app";
 
 export const useAuthStore = defineStore("auth", () => {
+  const appStore = useAppStore();
   // State
   const currentUser = ref<dto.UserOutput | null>(null);
   const usersList = ref<dto.UserListItem[]>([]);
@@ -49,7 +51,10 @@ export const useAuthStore = defineStore("auth", () => {
 
         const [users, user] = await Promise.all([usersPromise, userPromise]);
         usersList.value = users;
-        if (user) currentUser.value = user;
+        if (user) {
+          currentUser.value = user;
+          await appStore.loadUserSettings(user.id);
+        }
       }
 
       isInitialized.value = true;

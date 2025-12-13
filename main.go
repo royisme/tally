@@ -47,9 +47,9 @@ func main() {
 	err := wails.Run(&options.App{
 		Title:  "FreelanceFlow",
 		Width:     1200,
-		Height:    800,
+		Height:    900,
 		MinWidth:  1024,
-		MinHeight: 720,
+		MinHeight: 800,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

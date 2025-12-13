@@ -34,10 +34,11 @@ func ToTimeEntryOutputList(entities []models.TimeEntry) []dto.TimeEntryOutput {
 }
 
 // ToTimeEntryEntity converts CreateTimeEntryInput DTO to TimeEntry entity.
+// Note: InvoiceID defaults to 0 (unassigned) for new entries.
 func ToTimeEntryEntity(input dto.CreateTimeEntryInput) models.TimeEntry {
 	return models.TimeEntry{
 		ProjectID:       input.ProjectID,
-		InvoiceID:       input.InvoiceID,
+		InvoiceID:       0, // New entries are not assigned to an invoice
 		Date:            input.Date,
 		StartTime:       input.StartTime,
 		EndTime:         input.EndTime,

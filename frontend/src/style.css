@@ -124,6 +124,14 @@ body {
   width: 100%;
 }
 
+/* Ensure Naive UI provider chain inherits full height */
+.n-config-provider,
+.n-notification-provider,
+.n-message-provider,
+.n-dialog-provider {
+  height: 100%;
+}
+
 /* ============================================
    GLASSMORPHISM UTILITIES
    ============================================ */

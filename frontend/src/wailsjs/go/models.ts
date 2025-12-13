@@ -152,7 +152,6 @@ export namespace dto {
 	}
 	export class CreateTimeEntryInput {
 	    projectId: number;
-	    invoiceId: number;
 	    date: string;
 	    startTime: string;
 	    endTime: string;
@@ -168,7 +167,6 @@ export namespace dto {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.projectId = source["projectId"];
-	        this.invoiceId = source["invoiceId"];
 	        this.date = source["date"];
 	        this.startTime = source["startTime"];
 	        this.endTime = source["endTime"];

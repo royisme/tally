@@ -18,7 +18,6 @@ import {
     BarChartOutlined,
     WalletOutlined,
     SettingOutlined,
-    QuestionCircleOutlined,
     GlobalOutlined,
     BulbOutlined,
     BulbFilled,
@@ -44,7 +43,37 @@ const menuOptions = computed<MenuOption[]>(() => [
     { label: t('nav.timesheet'), key: 'timesheet', icon: renderIcon(ClockCircleOutlined) },
     { label: t('nav.invoices'), key: 'invoices', icon: renderIcon(FileTextOutlined) },
     { label: t('nav.reports'), key: 'reports', icon: renderIcon(BarChartOutlined) },
-    { label: t('nav.finance'), key: 'finance', icon: renderIcon(WalletOutlined) },
+    {
+        label: t('nav.finance'),
+        key: 'finance',
+        icon: renderIcon(WalletOutlined),
+        children: [
+            {
+                label: t('finance.nav.overview'),
+                key: 'finance/overview',
+            },
+            {
+                label: t('finance.nav.accounts'),
+                key: 'finance/accounts',
+            },
+            {
+                label: t('finance.nav.transactions'),
+                key: 'finance/transactions',
+            },
+            {
+                label: t('finance.nav.import'),
+                key: 'finance/import',
+            },
+            {
+                label: t('finance.nav.categories'),
+                key: 'finance/categories',
+            },
+            {
+                label: t('finance.nav.reports'),
+                key: 'finance/reports',
+            },
+        ],
+    },
     {
         label: t('nav.settings'),
         key: 'settings',
@@ -157,28 +186,6 @@ function handleMenuUpdate(key: string) {
                         </template>
                         {{ appStore.theme === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark') }}
                     </n-tooltip>
-
-                    <div class="divider-vertical"></div>
-
-                    <n-button quaternary circle>
-                        <template #icon><n-icon>
-                                <SettingOutlined />
-                            </n-icon></template>
-                    </n-button>
-                    <n-button quaternary circle>
-                        <template #icon><n-icon>
-                                <QuestionCircleOutlined />
-                            </n-icon></template>
-                    </n-button>
-
-                    <!-- User Menu -->
-                    <n-dropdown :options="userMenuOptions" @select="handleUserMenuSelect">
-                        <div class="user-menu-trigger">
-                            <n-avatar :size="32"
-                                :src="authStore.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${authStore.username}`" />
-                            <span class="username">{{ authStore.username }}</span>
-                        </div>
-                    </n-dropdown>
                 </n-space>
             </div>
         </n-layout-header>
@@ -186,9 +193,21 @@ function handleMenuUpdate(key: string) {
         <!-- 2. Main Body Area (Sider + Content) -->
         <n-layout position="absolute" style="top: 64px; bottom: 32px;" has-sider>
             <n-layout-sider bordered collapse-mode="width" :collapsed-width="64" :width="240" :collapsed="collapsed"
-                show-trigger @collapse="collapsed = true" @expand="collapsed = false">
-                <n-menu :collapsed="collapsed" :collapsed-width="64" :collapsed-icon-size="22" :options="menuOptions"
-                    :value="activeKey" @update:value="handleMenuUpdate" />
+                show-trigger @collapse="collapsed = true" @expand="collapsed = false" class="app-sider">
+                <div class="sider-content">
+                    <n-menu :collapsed="collapsed" :collapsed-width="64" :collapsed-icon-size="22" :options="menuOptions"
+                        :value="activeKey" @update:value="handleMenuUpdate" />
+                </div>
+                <!-- User Menu at bottom of sidebar -->
+                <div class="sider-footer" :class="{ 'collapsed': collapsed }">
+                    <n-dropdown :options="userMenuOptions" @select="handleUserMenuSelect" placement="right-start">
+                        <div class="user-menu-trigger" :class="{ 'collapsed': collapsed }">
+                            <n-avatar :size="collapsed ? 36 : 32"
+                                :src="authStore.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${authStore.username}`" />
+                            <span v-if="!collapsed" class="username">{{ authStore.username }}</span>
+                        </div>
+                    </n-dropdown>
+                </div>
             </n-layout-sider>
 
             <n-layout-content class="app-content">
@@ -271,23 +290,58 @@ strong {
     font-weight: 600;
 }
 
-/* User Menu */
+/* Sidebar Layout */
+.app-sider {
+    display: flex;
+    flex-direction: column;
+}
+
+:deep(.app-sider > .n-layout-sider-scroll-container) {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.sider-content {
+    flex: 1;
+    overflow: auto;
+}
+
+.sider-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--n-border-color);
+}
+
+.sider-footer.collapsed {
+    padding: 12px 0;
+    display: flex;
+    justify-content: center;
+}
+
+/* User Menu - aligned with Naive UI menu item padding */
 .user-menu-trigger {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
-    border-radius: var(--radius-full);
+    gap: 10px;
+    padding: 8px 0;
     cursor: pointer;
-    transition: background-color var(--transition-normal);
+    transition: opacity var(--transition-normal);
+    width: 100%;
+}
+
+.user-menu-trigger.collapsed {
+    justify-content: center;
+    padding: 8px;
 }
 
 .user-menu-trigger:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    opacity: 0.8;
 }
 
 .username {
     font-size: var(--text-sm);
     font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 </style>

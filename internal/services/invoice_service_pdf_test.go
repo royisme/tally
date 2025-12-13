@@ -39,16 +39,20 @@ func TestInvoiceService_GeneratePDF_BasicStructure(t *testing.T) {
 		Items:     []dto.InvoiceItemInput{},
 	})
 
-	// Link one time entry so totals exist.
-	_ = timeService.Create(user.ID, dto.CreateTimeEntryInput{
+	// Create one time entry (not linked yet)
+	entry := timeService.Create(user.ID, dto.CreateTimeEntryInput{
 		ProjectID:       project.ID,
-		InvoiceID:       inv.ID,
 		Date:            "2025-01-02",
 		StartTime:       "09:00",
 		EndTime:         "10:00",
 		DurationSeconds: 3600,
 		Billable:        true,
-		Invoiced:        true,
+		Invoiced:        false,
+	})
+	// Link entry to invoice using SetTimeEntries
+	_, _ = invoiceService.SetTimeEntries(user.ID, dto.SetInvoiceTimeEntriesInput{
+		InvoiceID:    inv.ID,
+		TimeEntryIDs: []int{entry.ID},
 	})
 
 	b64, err := invoiceService.GeneratePDF(user.ID, inv.ID, "Custom message")

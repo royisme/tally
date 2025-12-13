@@ -47,26 +47,30 @@ func TestInvoiceService_GetDefaultMessage_WithAndWithoutEntries(t *testing.T) {
 		t.Fatal("expected non-empty default message")
 	}
 
-	// Link two entries.
-	_ = timeService.Create(user.ID, dto.CreateTimeEntryInput{
+	// Create two entries (not linked to invoice yet)
+	entry1 := timeService.Create(user.ID, dto.CreateTimeEntryInput{
 		ProjectID:       project.ID,
-		InvoiceID:       inv.ID,
 		Date:            "2025-01-02",
 		StartTime:       "09:00",
 		EndTime:         "11:00",
 		DurationSeconds: 7200,
 		Billable:        true,
-		Invoiced:        true,
+		Invoiced:        false,
 	})
-	_ = timeService.Create(user.ID, dto.CreateTimeEntryInput{
+	entry2 := timeService.Create(user.ID, dto.CreateTimeEntryInput{
 		ProjectID:       project.ID,
-		InvoiceID:       inv.ID,
 		Date:            "2025-01-03",
 		StartTime:       "",
 		EndTime:         "",
 		DurationSeconds: 3600,
 		Billable:        true,
-		Invoiced:        true,
+		Invoiced:        false,
+	})
+
+	// Link entries to invoice using SetTimeEntries
+	_, _ = invoiceService.SetTimeEntries(user.ID, dto.SetInvoiceTimeEntriesInput{
+		InvoiceID:    inv.ID,
+		TimeEntryIDs: []int{entry1.ID, entry2.ID},
 	})
 
 	msg, err := invoiceService.GetDefaultMessage(user.ID, inv.ID)

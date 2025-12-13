@@ -24,11 +24,13 @@ const { t } = useI18n()
 const formRef = ref<FormInst | null>(null)
 const formValue = ref<Omit<TimeEntry, 'id'>>({
   projectId: 0,
+  invoiceId: 0,
   date: new Date().toISOString().split('T')[0] ?? '',
   startTime: '',
   endTime: '',
   durationSeconds: 0,
   description: '',
+  billable: true,
   invoiced: false
 })
 
@@ -52,21 +54,25 @@ watch(() => props.entry, (newEntry) => {
   if (newEntry) {
     formValue.value = {
       projectId: newEntry.projectId,
+      invoiceId: newEntry.invoiceId || 0,
       date: newEntry.date,
       startTime: newEntry.startTime || '',
       endTime: newEntry.endTime || '',
       durationSeconds: newEntry.durationSeconds,
       description: newEntry.description,
+      billable: newEntry.billable,
       invoiced: newEntry.invoiced
     }
   } else {
     formValue.value = {
       projectId: 0,
+      invoiceId: 0,
       date: new Date().toISOString().split('T')[0] ?? '',
       startTime: '',
       endTime: '',
       durationSeconds: 0,
       description: '',
+      billable: true,
       invoiced: false
     }
   }
@@ -127,7 +133,10 @@ function handleSubmit() {
       </n-form-item>
 
       <n-form-item>
-        <n-checkbox v-model:checked="formValue.invoiced">{{ t('timesheet.form.alreadyInvoiced') }}</n-checkbox>
+        <n-space>
+          <n-checkbox v-model:checked="formValue.billable">{{ t('timesheet.entries.billable') }}</n-checkbox>
+          <n-checkbox v-model:checked="formValue.invoiced">{{ t('timesheet.form.alreadyInvoiced') }}</n-checkbox>
+        </n-space>
       </n-form-item>
     </n-form>
 

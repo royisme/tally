@@ -21,15 +21,27 @@ const emit = defineEmits<Emits>()
 const message = useMessage()
 const { t } = useI18n()
 
+// Local form data type that allows null for optional date fields
+interface ProjectFormData {
+  clientId: number | null
+  name: string
+  description: string
+  hourlyRate: number
+  currency: string
+  status: string
+  deadline: string | null
+  tags: string[]
+}
+
 const formRef = ref<FormInst | null>(null)
-const formValue = ref<Omit<Project, 'id'>>({
-  clientId: 0,
+const formValue = ref<ProjectFormData>({
+  clientId: null,
   name: '',
   description: '',
   hourlyRate: 0,
   currency: 'USD',
   status: 'active',
-  deadline: '',
+  deadline: null,
   tags: []
 })
 
@@ -68,18 +80,18 @@ watch(() => props.project, (newProject) => {
       hourlyRate: newProject.hourlyRate,
       currency: newProject.currency,
       status: newProject.status,
-      deadline: newProject.deadline || '',
+      deadline: newProject.deadline || null,
       tags: newProject.tags || []
     }
   } else {
     formValue.value = {
-      clientId: 0,
+      clientId: null,
       name: '',
       description: '',
       hourlyRate: 0,
       currency: 'USD',
       status: 'active',
-      deadline: '',
+      deadline: null,
       tags: []
     }
   }
@@ -92,10 +104,16 @@ function handleClose() {
 function handleSubmit() {
   formRef.value?.validate((errors) => {
     if (!errors) {
+      // Convert null values to backend-compatible defaults
+      const submitData = {
+        ...formValue.value,
+        clientId: formValue.value.clientId || 0,
+        deadline: formValue.value.deadline || ''
+      }
       if (props.project) {
-        emit('submit', { ...formValue.value, id: props.project.id } as Project)
+        emit('submit', { ...submitData, id: props.project.id } as Project)
       } else {
-        emit('submit', formValue.value)
+        emit('submit', submitData as Omit<Project, 'id'>)
       }
       handleClose()
     } else {

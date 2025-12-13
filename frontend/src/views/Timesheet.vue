@@ -7,7 +7,7 @@ import {
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import PageContainer from '@/components/PageContainer.vue'
-import TimeTracker from '@/components/TimeTracker.vue'
+
 import QuickTimeEntry from '@/components/QuickTimeEntry.vue'
 import TimesheetFormModal from '@/components/TimesheetFormModal.vue'
 import { useTimesheetStore } from '@/stores/timesheet'
@@ -19,7 +19,7 @@ import {
   ClockCircleOutlined,
   EditOutlined,
   DeleteOutlined,
-  PlayCircleOutlined,
+
   LeftOutlined,
   RightOutlined,
   DownloadOutlined
@@ -133,17 +133,6 @@ const columns = computed<DataTableColumns<TimeEntry & { project?: { name: string
             quaternary: true,
             circle: true,
             size: 'tiny',
-            onClick: () => handleContinueTimer(row)
-          }, {
-            icon: () => h(NIcon, { size: 14 }, () => h(PlayCircleOutlined))
-          }),
-          default: () => t('timesheet.entry.continueTimer')
-        }),
-        h(NTooltip, { trigger: 'hover' }, {
-          trigger: () => h(NButton, {
-            quaternary: true,
-            circle: true,
-            size: 'tiny',
             onClick: () => handleEdit(row)
           }, {
             icon: () => h(NIcon, { size: 14 }, () => h(EditOutlined))
@@ -219,14 +208,7 @@ async function handleDelete(id: number) {
   }
 }
 
-async function handleContinueTimer(entry: TimeEntry & { project?: { name: string } }) {
-  try {
-    await timesheetStore.continueTimer(entry)
-    message.success(`Started tracking: ${entry.project?.name || 'Unknown project'}`)
-  } catch {
-    message.error('Failed to start timer')
-  }
-}
+
 
 // Form handlers
 async function handleSubmitEntry(entry: Omit<TimeEntry, 'id'> | TimeEntry) {
@@ -243,22 +225,7 @@ async function handleSubmitEntry(entry: Omit<TimeEntry, 'id'> | TimeEntry) {
   }
 }
 
-async function handleTimerStop(data: { projectId: number; description: string; durationSeconds: number }) {
-  try {
-    await timesheetStore.createTimeEntry({
-      projectId: data.projectId,
-      description: data.description,
-      durationSeconds: data.durationSeconds,
-      date: new Date().toISOString().split('T')[0]!,
-      startTime: '',
-      endTime: '',
-      billable: true,
-      invoiced: false
-    })
-  } catch {
-    message.error('Failed to save timer entry')
-  }
-}
+
 
 async function handleQuickEntry(data: { projectId: number; description: string; durationSeconds: number; date: string; billable: boolean }) {
   try {
@@ -298,8 +265,7 @@ onMounted(() => {
 
 <template>
   <PageContainer :title="t('timesheet.title')" :subtitle="t('timesheet.subtitle')">
-    <!-- Timer Bar -->
-    <TimeTracker :projects="projects" @stop="handleTimerStop" />
+
 
     <!-- Time Entries Section -->
     <n-card class="entries-section" :bordered="true" size="small">

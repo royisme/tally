@@ -16,12 +16,13 @@ import {
   NGi,
   NDivider,
   NDataTable,
-  NEmpty
+  NEmpty,
+  NCascader
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api'
 import type { Invoice, InvoiceItem, Client, Project, TimeEntry, CreateInvoiceInput, UpdateInvoiceInput } from '@/types'
-import type { FormInst, FormRules, DataTableColumns } from 'naive-ui'
+import type { FormInst, FormRules, DataTableColumns, CascaderOption } from 'naive-ui'
 import { invoiceSchema } from '@/schemas/invoice'
 import { useZodRule } from '@/utils/validation'
 
@@ -112,9 +113,9 @@ const statusOptions = [
   { label: t('invoices.status.overdue'), value: 'overdue' }
 ]
 
-const projects = ref<Project[]>([])
-const projectsLoading = ref(false)
 const selectedProjectId = ref<number | null>(null)
+const clientProjectValue = ref<Array<string | number> | null>(null)
+const clientProjectOptions = ref<CascaderOption[]>([])
 
 const timeEntries = ref<TimeEntry[]>([])
 const timeEntriesLoading = ref(false)
@@ -134,7 +135,7 @@ const selectedHours = computed(() => {
 
 const timeEntryColumns = computed<DataTableColumns<TimeEntry>>(() => [
   { title: t('invoices.selectEntries.columns.date'), key: 'date', width: 110 },
-  { title: t('timesheet.entries.description'), key: 'description', ellipsis: true },
+  { title: t('timesheet.form.description'), key: 'description', ellipsis: true },
   {
     title: t('invoices.selectEntries.columns.hours'),
     key: 'durationSeconds',
@@ -143,6 +144,38 @@ const timeEntryColumns = computed<DataTableColumns<TimeEntry>>(() => [
     render: (row) => (row.durationSeconds / 3600).toFixed(2)
   }
 ])
+
+function rebuildClientProjectOptions() {
+  clientProjectOptions.value = props.clients.map((c): CascaderOption => ({
+    label: c.name,
+    value: c.id,
+    children: undefined
+  }))
+}
+
+watch(
+  () => props.clients,
+  () => {
+    rebuildClientProjectOptions()
+  },
+  { immediate: true }
+)
+
+async function handleLoadClientProjects(option: CascaderOption): Promise<void> {
+  const clientId = option.value
+  if (typeof clientId !== 'number') return
+
+  try {
+    const projects = await api.projects.listByClient(clientId)
+    option.children = projects.map((p: Project): CascaderOption => ({
+      label: p.name,
+      value: p.id
+    }))
+  } catch {
+    option.children = []
+    message.error(t('projects.loadError'))
+  }
+}
 
 watch(() => props.invoice, (newInvoice) => {
   if (newInvoice) {
@@ -158,7 +191,7 @@ watch(() => props.invoice, (newInvoice) => {
       total: newInvoice.total,
       status: coerceInvoiceStatus(newInvoice.status)
     }
-    projects.value = []
+    clientProjectValue.value = null
     selectedProjectId.value = null
     timeEntries.value = []
     selectedTimeEntryIds.value = []
@@ -176,7 +209,7 @@ watch(() => props.invoice, (newInvoice) => {
       total: 0,
       status: 'draft'
     }
-    projects.value = []
+    clientProjectValue.value = null
     selectedProjectId.value = null
     timeEntries.value = []
     selectedTimeEntryIds.value = []
@@ -184,35 +217,24 @@ watch(() => props.invoice, (newInvoice) => {
 }, { immediate: true })
 
 watch(
-  () => formValue.value.clientId,
-  async (clientId) => {
+  () => clientProjectValue.value,
+  async (value) => {
     if (isEditMode.value) return
+    timeEntries.value = []
+    selectedTimeEntryIds.value = []
     selectedProjectId.value = null
-    timeEntries.value = []
-    selectedTimeEntryIds.value = []
-    projects.value = []
 
-    if (!clientId) return
-
-    projectsLoading.value = true
-    try {
-      projects.value = await api.projects.listByClient(clientId)
-    } catch {
-      projects.value = []
-      message.error(t('projects.loadError'))
-    } finally {
-      projectsLoading.value = false
+    if (!value || value.length < 2) {
+      formValue.value.clientId = value && value.length === 1 && typeof value[0] === 'number' ? value[0] : null
+      return
     }
-  }
-)
 
-watch(
-  () => selectedProjectId.value,
-  async (projectId) => {
-    if (isEditMode.value) return
-    timeEntries.value = []
-    selectedTimeEntryIds.value = []
-    if (!projectId) return
+    const clientId = value[0]
+    const projectId = value[1]
+    if (typeof clientId !== 'number' || typeof projectId !== 'number') return
+
+    formValue.value.clientId = clientId
+    selectedProjectId.value = projectId
 
     timeEntriesLoading.value = true
     try {
@@ -306,17 +328,24 @@ function handleSubmit() {
       <!-- Top Section: Client & Dates -->
       <n-grid :x-gap="24" :cols="2">
         <n-gi>
-          <n-form-item :label="t('invoices.form.client')" path="clientId">
-            <n-select v-model:value="formValue.clientId" :options="clients.map(c => ({ label: c.name, value: c.id }))"
-              :placeholder="t('invoices.form.selectClient')" filterable />
+          <n-form-item v-if="!invoice" :label="t('invoices.form.clientProject')" path="clientId">
+            <n-cascader
+              v-model:value="clientProjectValue"
+              :options="clientProjectOptions"
+              remote
+              :on-load="handleLoadClientProjects"
+              :placeholder="t('invoices.form.selectClientProject')"
+              clearable
+              filterable
+            />
           </n-form-item>
-          <n-form-item v-if="!invoice" :label="t('invoices.form.project')" path="projectId">
-            <n-select v-model:value="selectedProjectId"
-              :options="projects.map(p => ({ label: p.name, value: p.id }))"
-              :loading="projectsLoading"
-              :disabled="!formValue.clientId"
-              :placeholder="t('invoices.form.selectProject')"
-              filterable />
+          <n-form-item v-else :label="t('invoices.form.client')" path="clientId">
+            <n-select
+              v-model:value="formValue.clientId"
+              :options="clients.map(c => ({ label: c.name, value: c.id }))"
+              :placeholder="t('invoices.form.selectClient')"
+              filterable
+            />
           </n-form-item>
           <n-form-item :label="t('invoices.form.status')" path="status">
             <n-select v-model:value="formValue.status" :options="statusOptions" />
@@ -463,24 +492,6 @@ function handleSubmit() {
   border: 1px solid var(--n-divider-color);
 }
 
-.items-grid-header {
-  display: flex;
-  gap: 12px;
-  padding: 0 46px 8px 12px;
-  /* 46px right padding accounts for delete button area */
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--n-text-color-3);
-  text-transform: uppercase;
-}
-
-.item-row {
-  display: flex;
-  gap: 12px;
-  width: 100%;
-  align-items: center;
-}
-
 .totals-section {
   display: flex;
   justify-content: flex-end;
@@ -523,10 +534,5 @@ function handleSubmit() {
   font-size: 20px;
   font-weight: 700;
   color: var(--n-primary-color);
-}
-
-/* Override default dynamic input styling to fit table look */
-:deep(.n-dynamic-input .n-dynamic-input-item__action) {
-  margin-left: 12px;
 }
 </style>

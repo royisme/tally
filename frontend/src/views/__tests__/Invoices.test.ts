@@ -38,7 +38,7 @@ vi.mock("@/components/InvoiceFormModal.vue", () => ({
   default: {
     name: "InvoiceFormModal",
     props: ["show", "invoice", "clients", "projects"],
-    emits: ["update:show", "submit"],
+    emits: ["update:show", "create", "update"],
     template: '<div class="n-modal" v-if="show"><button @click="$emit(\'update:show\', false)">Close</button></div>',
   },
 }));

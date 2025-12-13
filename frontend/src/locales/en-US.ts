@@ -105,6 +105,7 @@ export default {
   timesheet: {
     title: "Timesheet",
     subtitle: "Track and log your billable hours",
+    loadError: "Failed to load time entries",
     logTime: "Log Time",
     noEntries: "No time entries yet",
     noEntriesHint: "Start the timer above or add time manually",
@@ -228,6 +229,7 @@ export default {
     updateSuccess: "Project updated successfully",
     createSuccess: "Project created successfully",
     saveError: "Failed to save project",
+    loadError: "Failed to load projects",
     manage: "Managing {name}",
     columns: {
       projectName: "Project Name",
@@ -314,10 +316,20 @@ export default {
       newTitle: "New Invoice",
       client: "Client",
       selectClient: "Select client",
+      clientProject: "Client / Project",
+      selectClientProject: "Select client, then project",
+      project: "Project",
+      selectProject: "Select project",
       status: "Status",
       invoiceNumber: "Invoice Number",
       issueDate: "Issue Date",
       dueDate: "Due Date",
+      timeEntries: {
+        title: "Time Entries",
+        selectProjectHint: "Select a project to load billable time entries",
+        empty: "No billable, uninvoiced time entries for this project",
+        selectedHours: "{hours} hours selected",
+      },
       items: {
         title: "Line Items",
         description: "Description",
@@ -325,6 +337,10 @@ export default {
         qty: "Qty",
         rate: "Rate",
         amount: "Amount",
+        countSuffix: "items",
+        empty: "No line items (derived from time entries)",
+        editHint:
+          "Line items are derived from linked time entries. Use the “Select Time Entries” action to change them.",
       },
       subtotal: "Subtotal",
       taxRate: "Tax Rate",
@@ -335,6 +351,7 @@ export default {
       create: "Create Invoice",
       validation: {
         fixErrors: "Please fix form errors",
+        selectEntries: "Please select at least one time entry",
       },
     },
   },

@@ -12,7 +12,7 @@ import { useClientStore } from '@/stores/clients'
 import { useTimesheetStore } from '@/stores/timesheet'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
-import type { Invoice, TimeEntry, Project } from '@/types'
+import type { Invoice, TimeEntry, Project, CreateInvoiceInput, UpdateInvoiceInput } from '@/types'
 import {
   PlusOutlined,
   DownloadOutlined,
@@ -21,6 +21,7 @@ import {
   MailOutlined,
   SearchOutlined
 } from '@vicons/antd'
+import { api } from '@/api'
 
 const message = useMessage()
 const invoiceStore = useInvoiceStore()
@@ -143,16 +144,23 @@ async function handleSend(invoice: EnrichedInvoice) {
   }
 }
 
-async function handleSubmitInvoice(invoice: Omit<Invoice, 'id'> | Invoice) {
+async function handleUpdateInvoice(invoice: UpdateInvoiceInput) {
   try {
-    if ('id' in invoice) {
-      await invoiceStore.updateInvoice(invoice)
-      message.success(t('invoices.updateSuccess'))
-    } else {
-      await invoiceStore.createInvoice(invoice)
-      message.success(t('invoices.createSuccess'))
-    }
-  } catch (error) {
+    await invoiceStore.updateInvoice(invoice)
+    message.success(t('invoices.updateSuccess'))
+  } catch {
+    message.error(t('invoices.saveError'))
+  }
+}
+
+async function handleCreateInvoiceFromEntries(payload: { input: CreateInvoiceInput; timeEntryIds: number[] }) {
+  try {
+    const created = await api.invoices.create(payload.input)
+    await api.invoices.setTimeEntries({ invoiceId: created.id, timeEntryIds: payload.timeEntryIds })
+    await invoiceStore.fetchInvoices()
+    await timesheetStore.fetchTimesheet()
+    message.success(t('invoices.createSuccess'))
+  } catch {
     message.error(t('invoices.saveError'))
   }
 }
@@ -325,7 +333,8 @@ const columns: DataTableColumns<EnrichedInvoice> = [
     </template>
 
     <InvoiceFormModal v-model:show="showModal" :invoice="editingInvoice" :clients="clients"
-      @submit="handleSubmitInvoice" />
+      @create="handleCreateInvoiceFromEntries"
+      @update="handleUpdateInvoice" />
 
     <!-- Stats Grid moved to scrollable content -->
     <div class="view-content">

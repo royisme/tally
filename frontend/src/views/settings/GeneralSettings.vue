@@ -169,7 +169,7 @@ async function handleSave() {
 
 function handleThemeChange(value: string) {
   if (appStore.theme !== value) {
-    appStore.setTheme(value);
+    appStore.setTheme(value as 'light' | 'dark');
   }
 }
 </script>
@@ -223,10 +223,7 @@ function handleThemeChange(value: string) {
       </div>
       <NForm v-else label-placement="left" label-width="200">
         <NFormItem v-for="m in toggleableModules" :key="m.id" :label="t(m.labelKey)">
-          <NSwitch
-            :value="isModuleEnabled(m.id)"
-            @update:value="(v) => setModuleEnabled(m.id, v)"
-          />
+          <NSwitch :value="isModuleEnabled(m.id)" @update:value="(v) => setModuleEnabled(m.id, v)" />
         </NFormItem>
       </NForm>
     </NCard>

@@ -33,7 +33,7 @@ const clientStore = useClientStore()
 const timesheetStore = useTimesheetStore()
 const { enrichedInvoices, stats, loading } = storeToRefs(invoiceStore)
 const { clients } = storeToRefs(clientStore)
-const { enrichedEntries, loading: timesLoading } = storeToRefs(timesheetStore)
+
 const { t } = useI18n()
 
 const showModal = ref(false)

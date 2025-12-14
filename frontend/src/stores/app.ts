@@ -44,6 +44,12 @@ export const useAppStore = defineStore("app", () => {
     await syncToBackend();
   }
 
+  // Set theme and sync to backend
+  async function setTheme(newTheme: Theme) {
+    theme.value = newTheme;
+    await syncToBackend();
+  }
+
   // Set locale and sync to backend
   async function setLocale(newLocale: Locale) {
     locale.value = newLocale;
@@ -72,6 +78,7 @@ export const useAppStore = defineStore("app", () => {
     theme,
     locale,
     toggleTheme,
+    setTheme,
     setLocale,
     loadUserSettings,
     resetToDefaults,

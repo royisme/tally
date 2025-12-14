@@ -6,22 +6,22 @@ import { mountView } from "@/test-utils/mount";
 
 const mockApi = vi.hoisted(() => ({
   invoices: {
-    list: vi.fn<[], Promise<Invoice[]>>(),
-    create: vi.fn<[Omit<Invoice, "id">], Promise<Invoice>>(),
-    update: vi.fn<[Invoice], Promise<Invoice>>(),
-    delete: vi.fn<[number], Promise<void>>(),
-    generatePdf: vi.fn<[number, string], Promise<string>>(),
-    getDefaultMessage: vi.fn<[number], Promise<string>>(),
-    setTimeEntries: vi.fn<[number, number[]], Promise<void>>(),
+    list: vi.fn<() => Promise<Invoice[]>>(),
+    create: vi.fn<(invoice: Omit<Invoice, "id">) => Promise<Invoice>>(),
+    update: vi.fn<(invoice: Invoice) => Promise<Invoice>>(),
+    delete: vi.fn<(id: number) => Promise<void>>(),
+    generatePdf: vi.fn<(id: number, path: string) => Promise<string>>(),
+    getDefaultMessage: vi.fn<(id: number) => Promise<string>>(),
+    setTimeEntries: vi.fn<(id: number, entryIds: number[]) => Promise<void>>(),
   },
   clients: {
-    list: vi.fn<[], Promise<Client[]>>(),
+    list: vi.fn<() => Promise<Client[]>>(),
   },
   projects: {
-    list: vi.fn<[], Promise<unknown[]>>(),
+    list: vi.fn<() => Promise<unknown[]>>(),
   },
   timeEntries: {
-    list: vi.fn<[], Promise<TimeEntry[]>>(),
+    list: vi.fn<() => Promise<TimeEntry[]>>(),
   },
   statusBar: {
     get: vi.fn().mockResolvedValue({}),
@@ -62,9 +62,18 @@ describe("Invoices view", () => {
       id: 1,
       name: "Client A",
       email: "a@example.com",
-      userId: 1,
-      createdAt: "",
-      updatedAt: "",
+      website: "",
+      avatar: "",
+      contactPerson: "",
+      address: "",
+      currency: "CAD",
+      status: "active",
+      notes: "",
+      billingCompany: "",
+      billingAddress: "",
+      billingCity: "",
+      billingProvince: "",
+      billingPostalCode: "",
     },
   ];
 
@@ -72,6 +81,7 @@ describe("Invoices view", () => {
     {
       id: 1,
       projectId: 1,
+      invoiceId: 0,
       description: "Test Entry",
       durationSeconds: 3600,
       date: "2025-12-11",
@@ -79,31 +89,25 @@ describe("Invoices view", () => {
       endTime: "10:00",
       billable: true,
       invoiced: false,
-      userId: 1,
-      createdAt: "",
-      updatedAt: "",
     },
   ];
 
-  const mockInvoices: Invoice[] = [
+  const mockInvoices = [
     {
       id: 1,
       number: "INV-001",
       clientId: 1,
+      projectId: 0,
       issueDate: "2025-12-11",
       dueDate: "2026-01-11",
       subtotal: 100,
-      tax: 10,
-      total: 110,
       taxRate: 10,
+      taxAmount: 10,
+      total: 110,
       status: "draft",
-      itemsJson: JSON.stringify([]),
-      timeEntryIds: [],
-      userId: 1,
-      createdAt: "",
-      updatedAt: "",
+      items: [],
     },
-  ];
+  ] as unknown as Invoice[];
 
   beforeEach(() => {
     vi.clearAllMocks();

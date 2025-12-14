@@ -120,7 +120,7 @@ async function handleSave() {
               <NInput type="password" show-password-on="click" v-model:value="form.smtpPassword" :disabled="saving" />
             </NFormItemGi>
             <NFormItemGi :span="2" :label="t('settings.email.fields.smtpUseTLS')">
-              <NSwitch v-model:value="form.smtpUseTLS" :disabled="saving" />
+              <NSwitch v-model:value="form.smtpUseTls" :disabled="saving" />
             </NFormItemGi>
           </template>
 

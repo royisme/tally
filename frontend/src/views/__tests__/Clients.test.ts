@@ -21,6 +21,9 @@ const mockApi = vi.hoisted(() => ({
   invoices: {
     list: vi.fn<[], Promise<any[]>>(),
   },
+  statusBar: {
+    get: vi.fn().mockResolvedValue({}),
+  },
 }));
 
 vi.mock("@/api", () => ({ api: mockApi }));
@@ -33,8 +36,22 @@ vi.mock("vue-i18n", () => ({
 
 describe("Clients view", () => {
   const mockClients: Client[] = [
-    { id: 1, name: "Client A", email: "a@example.com", userId: 1, createdAt: "", updatedAt: "" },
-    { id: 2, name: "Client B", email: "b@example.com", userId: 1, createdAt: "", updatedAt: "" },
+    {
+      id: 1,
+      name: "Client A",
+      email: "a@example.com",
+      userId: 1,
+      createdAt: "",
+      updatedAt: "",
+    },
+    {
+      id: 2,
+      name: "Client B",
+      email: "b@example.com",
+      userId: 1,
+      createdAt: "",
+      updatedAt: "",
+    },
   ];
 
   beforeEach(() => {

@@ -246,6 +246,13 @@ export default {
       archived: "Archived",
       completed: "Completed",
     },
+    detail: {
+      backToClients: "Back to Clients",
+      info: "Project Info",
+      timeEntries: "Time Entries",
+      totalHours: "Total Hours",
+      notFound: "Project not found",
+    },
   },
 
   // Invoices
@@ -393,6 +400,21 @@ export default {
       status: "Status",
       notes: "Notes",
       notesPlaceholder: "Additional notes",
+      tabs: {
+        basic: "Basic Info",
+        address: "Address & Billing",
+        settings: "Settings",
+      },
+      billingCompany: "Billing Company",
+      billingCompanyPlaceholder: "Company name for invoice (Optional)",
+      billingAddress: "Billing Address",
+      billingAddressPlaceholder: "Enter billing address if different",
+      billingCity: "City",
+      billingCityPlaceholder: "City",
+      billingProvince: "Province/State",
+      billingProvincePlaceholder: "Province/State",
+      billingPostalCode: "Postal Code",
+      billingPostalCodePlaceholder: "Postal Code",
     },
     project: {
       client: "Client",

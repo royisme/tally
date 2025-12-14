@@ -23,6 +23,9 @@ const mockApi = vi.hoisted(() => ({
   timeEntries: {
     list: vi.fn<[], Promise<TimeEntry[]>>(),
   },
+  statusBar: {
+    get: vi.fn().mockResolvedValue({}),
+  },
 }));
 
 vi.mock("@/api", () => ({ api: mockApi }));
@@ -39,7 +42,8 @@ vi.mock("@/components/InvoiceFormModal.vue", () => ({
     name: "InvoiceFormModal",
     props: ["show", "invoice", "clients", "projects"],
     emits: ["update:show", "create", "update"],
-    template: '<div class="n-modal" v-if="show"><button @click="$emit(\'update:show\', false)">Close</button></div>',
+    template:
+      '<div class="n-modal" v-if="show"><button @click="$emit(\'update:show\', false)">Close</button></div>',
   },
 }));
 
@@ -54,7 +58,14 @@ vi.mock("@/components/PageContainer.vue", () => ({
 
 describe("Invoices view", () => {
   const mockClients: Client[] = [
-    { id: 1, name: "Client A", email: "a@example.com", userId: 1, createdAt: "", updatedAt: "" },
+    {
+      id: 1,
+      name: "Client A",
+      email: "a@example.com",
+      userId: 1,
+      createdAt: "",
+      updatedAt: "",
+    },
   ];
 
   const mockTimeEntries: TimeEntry[] = [

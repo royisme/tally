@@ -12,6 +12,9 @@ const mockApi = vi.hoisted(() => ({
   projects: {
     list: vi.fn(),
   },
+  statusBar: {
+    get: vi.fn().mockResolvedValue({}),
+  },
 }));
 
 vi.mock("@/api", () => ({ api: mockApi }));

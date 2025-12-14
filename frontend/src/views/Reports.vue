@@ -193,13 +193,10 @@ const tablePagination = {
 
             <n-empty v-if="report.rows.length === 0" :description="t('reports.empty')" size="small" />
 
-            <n-card v-else class="table-card" :bordered="true" size="small"
-              :content-style="{ padding: 0, height: '100%', display: 'flex', flexDirection: 'column' }">
-              <div class="table-scroll-container">
-                <n-data-table :columns="columns" :data="report.rows" :bordered="false" :loading="loading"
-                  size="small" />
-              </div>
-            </n-card>
+            <!-- Using flex-height with calc() for native DataTable scrolling with fixed headers -->
+            <n-data-table v-else :columns="columns" :data="report.rows" :bordered="true" :loading="loading"
+              :pagination="tablePagination" size="small" flex-height
+              :style="{ height: 'calc(100vh - 420px)', minHeight: '150px' }" />
           </div>
         </template>
       </div>
@@ -239,37 +236,9 @@ const tablePagination = {
   flex: 1;
 }
 
+/* Fixed chart height to make calc() predictable */
 .report-chart {
-  height: clamp(180px, 32vh, 320px);
-}
-
-.table-card {
-  flex: 1;
-  min-height: 0;
-}
-
-.table-scroll-container {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* Custom scrollbar styling */
-.table-scroll-container::-webkit-scrollbar {
-  width: 6px;
-}
-
-.table-scroll-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.table-scroll-container::-webkit-scrollbar-thumb {
-  background: var(--n-scrollbar-color);
-  border-radius: 3px;
-}
-
-.table-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: var(--n-scrollbar-color-hover);
+  height: 200px;
 }
 
 .filter-date {

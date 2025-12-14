@@ -16,6 +16,9 @@ const mockApi = vi.hoisted(() => ({
   clients: {
     list: vi.fn(),
   },
+  statusBar: {
+    get: vi.fn().mockResolvedValue({}),
+  },
 }));
 
 vi.mock("@/api", () => ({ api: mockApi }));
@@ -124,4 +127,3 @@ describe("useInvoiceStore CRUD", () => {
     expect(mockApi.invoices.list).toHaveBeenCalledTimes(1);
   });
 });
-

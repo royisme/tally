@@ -22,7 +22,7 @@ export type EnabledModulesInput = {
 };
 
 export function normalizeModuleOverrides(
-  values: Record<string, unknown> | null | undefined,
+  values: Record<string, unknown> | null | undefined
 ): Partial<Record<ModuleID, boolean>> | null {
   if (!values) return null;
   const out: Partial<Record<ModuleID, boolean>> = {};
@@ -38,7 +38,11 @@ const baseModules: AppModule[] = [
     id: "dashboard",
     enabledByDefault: true,
     toggleable: false,
-    nav: { labelKey: "nav.dashboard", key: "dashboard", icon: DashboardOutlined },
+    nav: {
+      labelKey: "nav.dashboard",
+      key: "dashboard",
+      icon: DashboardOutlined,
+    },
     routes: [
       {
         path: "/dashboard",
@@ -71,13 +75,22 @@ const baseModules: AppModule[] = [
         component: () => import("@/views/Projects.vue"),
         meta: { requiresAuth: true, layout: "main", moduleID: "projects" },
       },
+      {
+        path: "/projects/:id",
+        component: () => import("@/views/ProjectDetail.vue"),
+        meta: { requiresAuth: true, layout: "main", moduleID: "projects" },
+      },
     ],
   },
   {
     id: "timesheet",
     enabledByDefault: true,
     toggleable: false,
-    nav: { labelKey: "nav.timesheet", key: "timesheet", icon: ClockCircleOutlined },
+    nav: {
+      labelKey: "nav.timesheet",
+      key: "timesheet",
+      icon: ClockCircleOutlined,
+    },
     routes: [
       {
         path: "/timesheet",
@@ -175,7 +188,11 @@ function createSettingsModule(contribPages: ModuleSettingsPage[]): AppModule {
           labelKey: p.labelKey,
           moduleID: "settings",
         })),
-        ...pages.map((p) => ({ key: `settings/${p.key}`, labelKey: p.labelKey, moduleID: p.moduleID })),
+        ...pages.map((p) => ({
+          key: `settings/${p.key}`,
+          labelKey: p.labelKey,
+          moduleID: p.moduleID,
+        })),
       ],
     },
     routes: [
@@ -193,10 +210,15 @@ const nonSettingsModules: AppModule[] = [...baseModules, financeModule];
 
 export const allModules: AppModule[] = [
   ...nonSettingsModules,
-  createSettingsModule(nonSettingsModules.flatMap((m) => m.settingsPages ?? [])),
+  createSettingsModule(
+    nonSettingsModules.flatMap((m) => m.settingsPages ?? [])
+  ),
 ];
 
-export function isModuleEnabled(module: AppModule, input: EnabledModulesInput | null): boolean {
+export function isModuleEnabled(
+  module: AppModule,
+  input: EnabledModulesInput | null
+): boolean {
   const overrides = input?.moduleOverrides ?? null;
   if (overrides && overrides[module.id] !== undefined) {
     return overrides[module.id] === true;
@@ -218,7 +240,7 @@ export function getModuleByID(moduleID: ModuleID): AppModule | null {
 
 export function isModuleIDEnabled(
   moduleID: ModuleID,
-  overrides: EnabledModulesInput["moduleOverrides"] | null,
+  overrides: EnabledModulesInput["moduleOverrides"] | null
 ): boolean {
   const mod = getModuleByID(moduleID);
   if (!mod) return true;

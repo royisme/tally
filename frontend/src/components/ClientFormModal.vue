@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { NModal, NForm, NFormItem, NInput, NSelect, NButton, NSpace, NDivider, useMessage } from 'naive-ui'
+import { NModal, NForm, NFormItem, NInput, NSelect, NButton, NSpace, NTabs, NTabPane, useMessage } from 'naive-ui'
 import type { Client } from '@/types'
 import type { FormInst } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
@@ -21,6 +21,7 @@ const message = useMessage()
 const { t } = useI18n()
 
 const formRef = ref<FormInst | null>(null)
+const activeTab = ref('basic')
 
 // Extended with billing fields
 type ClientFormData = Omit<Client, 'id'> & {
@@ -108,6 +109,7 @@ watch(() => props.client, (newClient) => {
       billingPostalCode: ''
     }
   }
+  activeTab.value = 'basic'
 }, { immediate: true })
 
 function handleClose() {
@@ -137,74 +139,90 @@ function handleSubmit() {
 </script>
 
 <template>
-  <n-modal :show="show" @update:show="handleUpdateShow" preset="card" :style="{ width: '700px' }"
+  <n-modal :show="show" @update:show="handleUpdateShow" preset="card" :style="{ width: '600px' }"
     :title="client ? t('clients.editClient') : t('clients.newClient')">
     <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top"
       require-mark-placement="right-hanging">
-      <n-space style="width: 100%">
-        <!-- Use grid layout for better density -->
-        <n-form-item :label="t('form.client.name')" path="name" style="flex: 1; min-width: 250px;">
-          <n-input v-model:value="formValue.name" :placeholder="t('form.client.namePlaceholder')" />
-        </n-form-item>
-        <n-form-item :label="t('form.client.contactPerson')" path="contactPerson" style="flex: 1; min-width: 250px;">
-          <n-input v-model:value="formValue.contactPerson" :placeholder="t('form.client.contactPersonPlaceholder')" />
-        </n-form-item>
-      </n-space>
+      <n-tabs v-model:value="activeTab" type="line" animated>
+        <!-- Tab 1: Basic Info -->
+        <n-tab-pane name="basic" :tab="t('form.client.tabs.basic')">
+          <n-space vertical :size="0" style="padding-top: 12px;">
+            <n-space style="width: 100%">
+              <n-form-item :label="t('form.client.name')" path="name" style="flex: 1; min-width: 240px;">
+                <n-input v-model:value="formValue.name" :placeholder="t('form.client.namePlaceholder')" />
+              </n-form-item>
+              <n-form-item :label="t('form.client.contactPerson')" path="contactPerson"
+                style="flex: 1; min-width: 240px;">
+                <n-input v-model:value="formValue.contactPerson"
+                  :placeholder="t('form.client.contactPersonPlaceholder')" />
+              </n-form-item>
+            </n-space>
 
-      <n-space style="width: 100%">
-        <n-form-item :label="t('form.client.email')" path="email" style="flex: 1; min-width: 250px;">
-          <n-input v-model:value="formValue.email" :placeholder="t('form.client.emailPlaceholder')" />
-        </n-form-item>
-        <n-form-item :label="t('form.client.website')" path="website" style="flex: 1; min-width: 250px;">
-          <n-input v-model:value="formValue.website" :placeholder="t('form.client.websitePlaceholder')" />
-        </n-form-item>
-      </n-space>
+            <n-space style="width: 100%">
+              <n-form-item :label="t('form.client.email')" path="email" style="flex: 1; min-width: 240px;">
+                <n-input v-model:value="formValue.email" :placeholder="t('form.client.emailPlaceholder')" />
+              </n-form-item>
+              <n-form-item :label="t('form.client.website')" path="website" style="flex: 1; min-width: 240px;">
+                <n-input v-model:value="formValue.website" :placeholder="t('form.client.websitePlaceholder')" />
+              </n-form-item>
+            </n-space>
+          </n-space>
+        </n-tab-pane>
 
-      <n-form-item :label="t('form.client.address')" path="address">
-        <n-input v-model:value="formValue.address" type="textarea" :placeholder="t('form.client.addressPlaceholder')"
-          :rows="2" />
-      </n-form-item>
+        <!-- Tab 2: Address & Billing -->
+        <n-tab-pane name="address" :tab="t('form.client.tabs.address')">
+          <n-space vertical :size="0" style="padding-top: 12px;">
+            <n-form-item :label="t('form.client.address')" path="address">
+              <n-input v-model:value="formValue.address" type="textarea"
+                :placeholder="t('form.client.addressPlaceholder')" :rows="2" />
+            </n-form-item>
 
-      <n-divider title-placement="left" style="margin: 12px 0; font-size: 13px; color: #666;">
-        Billing Information
-      </n-divider>
+            <n-form-item :label="t('form.client.billingCompany')" path="billingCompany">
+              <n-input v-model:value="formValue.billingCompany"
+                :placeholder="t('form.client.billingCompanyPlaceholder')" />
+            </n-form-item>
 
-      <n-form-item label="Billing Company" path="billingCompany">
-        <n-input v-model:value="formValue.billingCompany" placeholder="Company Name for Invoice (Optional)" />
-      </n-form-item>
+            <n-form-item :label="t('form.client.billingAddress')" path="billingAddress">
+              <n-input v-model:value="formValue.billingAddress"
+                :placeholder="t('form.client.billingAddressPlaceholder')" />
+            </n-form-item>
 
-      <n-form-item label="Billing Address" path="billingAddress">
-        <n-input v-model:value="formValue.billingAddress" placeholder="Enter billing address if different" />
-      </n-form-item>
+            <n-space style="width: 100%">
+              <n-form-item :label="t('form.client.billingCity')" path="billingCity" style="flex: 2;">
+                <n-input v-model:value="formValue.billingCity" :placeholder="t('form.client.billingCityPlaceholder')" />
+              </n-form-item>
+              <n-form-item :label="t('form.client.billingProvince')" path="billingProvince" style="flex: 1;">
+                <n-input v-model:value="formValue.billingProvince"
+                  :placeholder="t('form.client.billingProvincePlaceholder')" />
+              </n-form-item>
+              <n-form-item :label="t('form.client.billingPostalCode')" path="billingPostalCode" style="flex: 1;">
+                <n-input v-model:value="formValue.billingPostalCode"
+                  :placeholder="t('form.client.billingPostalCodePlaceholder')" />
+              </n-form-item>
+            </n-space>
+          </n-space>
+        </n-tab-pane>
 
-      <n-space style="width: 100%">
-        <n-form-item label="City" path="billingCity" style="flex: 2;">
-          <n-input v-model:value="formValue.billingCity" placeholder="City" />
-        </n-form-item>
-        <n-form-item label="Province/State" path="billingProvince" style="flex: 1;">
-          <n-input v-model:value="formValue.billingProvince" placeholder="State/Province" />
-        </n-form-item>
-        <n-form-item label="Postal Code" path="billingPostalCode" style="flex: 1;">
-          <n-input v-model:value="formValue.billingPostalCode" placeholder="Postal Code" />
-        </n-form-item>
-      </n-space>
+        <!-- Tab 3: Other Settings -->
+        <n-tab-pane name="settings" :tab="t('form.client.tabs.settings')">
+          <n-space vertical :size="0" style="padding-top: 12px;">
+            <n-space>
+              <n-form-item :label="t('form.client.currency')" path="currency" style="flex: 1; min-width: 150px;">
+                <n-select v-model:value="formValue.currency" :options="currencyOptions" />
+              </n-form-item>
 
-      <n-divider style="margin: 12px 0;" />
+              <n-form-item :label="t('form.client.status')" path="status" style="flex: 1; min-width: 150px;">
+                <n-select v-model:value="formValue.status" :options="statusOptions" />
+              </n-form-item>
+            </n-space>
 
-      <n-space>
-        <n-form-item :label="t('form.client.currency')" path="currency" style="flex: 1; min-width: 150px;">
-          <n-select v-model:value="formValue.currency" :options="currencyOptions" />
-        </n-form-item>
-
-        <n-form-item :label="t('form.client.status')" path="status" style="flex: 1; min-width: 150px;">
-          <n-select v-model:value="formValue.status" :options="statusOptions" />
-        </n-form-item>
-      </n-space>
-
-      <n-form-item :label="t('form.client.notes')" path="notes">
-        <n-input v-model:value="formValue.notes" type="textarea" :placeholder="t('form.client.notesPlaceholder')"
-          :rows="2" />
-      </n-form-item>
+            <n-form-item :label="t('form.client.notes')" path="notes">
+              <n-input v-model:value="formValue.notes" type="textarea" :placeholder="t('form.client.notesPlaceholder')"
+                :rows="3" />
+            </n-form-item>
+          </n-space>
+        </n-tab-pane>
+      </n-tabs>
     </n-form>
 
     <template #footer>

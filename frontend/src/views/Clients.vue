@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { h, onMounted, computed, ref } from 'vue'
 import {
-  NButton, NDataTable, NTag, NSpace, NAvatar, NText, NCard, NGrid, NGridItem, NIcon,
+  NButton, NDataTable, NTag, NSpace, NText, NIcon,
   type DataTableColumns, useMessage, useDialog
 } from 'naive-ui'
+import { useRouter } from 'vue-router'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import ClientFormModal from '@/components/ClientFormModal.vue'
@@ -12,10 +13,11 @@ import { useProjectStore } from '@/stores/projects'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import type { Client, Project } from '@/types'
-import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOpenOutlined } from '@vicons/antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, RightOutlined } from '@vicons/antd'
 
 const message = useMessage()
 const dialog = useDialog()
+const router = useRouter()
 const clientStore = useClientStore()
 const projectStore = useProjectStore()
 const { clients, loading: clientsLoading } = storeToRefs(clientStore)
@@ -80,78 +82,78 @@ function getClientProjects(clientId: number): Project[] {
   return projects.value.filter(p => p.clientId === clientId)
 }
 
-// Sub-Component: Project List (Rendered in Expanded Row)
-const ProjectListRenderer = (props: { projects: Project[] }) => {
-  if (props.projects.length === 0) {
-    return h(NText, { depth: 3, style: 'padding: 12px 0; display: block;' }, { default: () => t('projects.noProjects') })
-  }
-
-  return h(NGrid, { cols: 2, xGap: 12, yGap: 12 }, {
-    default: () => props.projects.map(project =>
-      h(NGridItem, null, {
-        default: () => h(NCard, { size: 'small', bordered: true, style: 'background-color: var(--n-action-color);' }, {
-          header: () => h(NText, { strong: true }, { default: () => project.name }),
-          headerExtra: () => h(NTag, {
-            type: project.status === 'active' ? 'success' : 'default',
-            size: 'tiny',
-            bordered: false,
-            round: true
-          }, { default: () => t(`projects.status.${project.status}`) }),
-          default: () => h(NText, { depth: 3, style: 'font-size: 12px' }, { default: () => project.description || '-' })
-        })
-      })
-    )
-  })
+// Navigate to project detail
+function handleViewProject(projectId: number) {
+  router.push(`/projects/${projectId}`)
 }
 
-// Table Columns Definition
-const columns: DataTableColumns<Client> = [
-  {
-    type: 'expand',
-    renderExpand: (row) => {
-      const clientProjects = getClientProjects(row.id)
-      return h(
-        'div',
-        { style: 'padding: 12px 24px 24px 60px;' }, // Indent content
-        [
-          h(NText, { strong: true, style: 'margin-bottom: 8px; display: block;' }, { default: () => t('clients.columns.associatedProjects') }),
-          h(ProjectListRenderer, { projects: clientProjects })
-        ]
-      )
+// Type for tree data rows
+interface TreeRow {
+  key: string
+  type: 'client' | 'project'
+  name: string
+  contactPerson?: string
+  status: string
+  clientId?: number
+  projectId?: number
+  description?: string
+  children?: TreeRow[]
+}
+
+// Build tree data: Clients as parents, Projects as children
+const treeData = computed<TreeRow[]>(() => {
+  return clients.value.map(client => {
+    const clientProjects = getClientProjects(client.id)
+    return {
+      key: `client-${client.id}`,
+      type: 'client' as const,
+      name: client.name,
+      contactPerson: client.contactPerson || '-',
+      status: client.status,
+      clientId: client.id,
+      children: clientProjects.map(project => ({
+        key: `project-${project.id}`,
+        type: 'project' as const,
+        name: project.name,
+        description: project.description || '-',
+        status: project.status,
+        projectId: project.id,
+      }))
     }
-  },
+  })
+})
+
+// Table Columns for tree data
+const columns: DataTableColumns<TreeRow> = [
   {
     title: () => t('clients.columns.clientName'),
     key: 'name',
-    width: 280,
     render(row) {
-      const projectCount = getClientProjects(row.id).length
-      return h(
-        NSpace,
-        { align: 'center', size: 'small' },
-        {
-          default: () => [
-            h(NAvatar, {
-              size: 'small',
-              src: row.avatar,
-              fallbackSrc: 'https://07akioni.oss-cn-hangzhou.aliyuncs.com/07akioni.jpeg',
-              round: true,
-              style: 'margin-right: 8px'
-            }),
-            h('div', [
-              h('div', { style: 'font-weight: 600;' }, row.name),
-              h(NText, { depth: 3, style: 'font-size: 11px;' }, { default: () => t('clients.columns.projectsCount', { count: projectCount }) })
-            ])
-          ]
-        }
-      )
+      if (row.type === 'client') {
+        const projectCount = row.children?.length || 0
+        return h('div', [
+          h('div', { style: 'font-weight: 600;' }, row.name),
+          h(NText, { depth: 3, style: 'font-size: 11px;' }, { default: () => t('clients.columns.projectsCount', { count: projectCount }) })
+        ])
+      } else {
+        // Project row - explicit indent with tree connector to show hierarchy
+        return h('div', { class: 'project-name-cell' }, [
+          h('span', { class: 'tree-connector' }, '└─'),
+          h('div', { class: 'project-info' }, [
+            h('div', { style: 'font-weight: 500;' }, row.name),
+            h(NText, { depth: 3, style: 'font-size: 11px;' }, { default: () => row.description })
+          ])
+        ])
+      }
     }
   },
   {
     title: () => t('clients.columns.contactPerson'),
     key: 'contactPerson',
+    width: 180,
     render(row) {
-      return row.contactPerson || '-'
+      // Only show for clients
+      return row.type === 'client' ? (row.contactPerson || '-') : ''
     }
   },
   {
@@ -159,51 +161,75 @@ const columns: DataTableColumns<Client> = [
     key: 'status',
     width: 100,
     render(row) {
+      const statusType = row.status === 'active' ? 'success' : (row.status === 'archived' ? 'warning' : 'default')
+      const statusKey = row.type === 'client' ? `clients.status.${row.status}` : `projects.status.${row.status}`
       return h(
         NTag,
         {
-          type: row.status === 'active' ? 'success' : 'default',
+          type: statusType,
           bordered: false,
           round: true,
           size: 'small'
         },
-        { default: () => t(`clients.status.${row.status}`) }
+        { default: () => t(statusKey) }
       )
     }
   },
   {
     title: () => t('clients.columns.actions'),
     key: 'actions',
-    width: 140,
+    width: 100,
     render(row) {
-      return h(NSpace, { size: 'small' }, {
-        default: () => [
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              circle: true,
-              onClick: (e) => { e.stopPropagation(); handleEditClient(row); }
-            },
-            { icon: () => h(EditOutlined) }
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              circle: true,
-              type: 'error',
-              onClick: (e) => { e.stopPropagation(); handleDeleteClient(row); }
-            },
-            { icon: () => h(DeleteOutlined) }
-          )
-        ]
-      })
+      if (row.type === 'client') {
+        // Client actions: Edit & Delete
+        const client = clients.value.find(c => c.id === row.clientId)
+        if (!client) return null
+        return h(NSpace, { size: 'small' }, {
+          default: () => [
+            h(
+              NButton,
+              {
+                size: 'small',
+                quaternary: true,
+                circle: true,
+                onClick: (e) => { e.stopPropagation(); handleEditClient(client) }
+              },
+              { icon: () => h(EditOutlined) }
+            ),
+            h(
+              NButton,
+              {
+                size: 'small',
+                quaternary: true,
+                circle: true,
+                type: 'error',
+                onClick: (e) => { e.stopPropagation(); handleDeleteClient(client) }
+              },
+              { icon: () => h(DeleteOutlined) }
+            )
+          ]
+        })
+      } else {
+        // Project action: View details
+        return h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            circle: true,
+            onClick: () => handleViewProject(row.projectId!)
+          },
+          { icon: () => h(RightOutlined) }
+        )
+      }
     }
   }
 ]
+
+// Row class for styling
+function rowClassName(row: TreeRow) {
+  return row.type === 'project' ? 'project-row' : 'client-row'
+}
 </script>
 
 <template>
@@ -223,20 +249,45 @@ const columns: DataTableColumns<Client> = [
 
     <ClientFormModal v-model:show="showModal" :client="editingClient" @submit="handleSubmitClient" />
 
-    <n-data-table :columns="columns" :data="clients" :loading="loading" :bordered="false" class="client-table"
-      :row-key="(row) => row.id" />
+    <n-data-table :columns="columns" :data="treeData" :loading="loading" :bordered="false"
+      :row-key="(row: TreeRow) => row.key" children-key="children" :row-class-name="rowClassName"
+      class="client-table" />
   </PageContainer>
 </template>
 
 <style scoped>
-/* Scoped styles if needed */
 .client-table :deep(.n-data-table-th) {
   font-weight: 600;
   color: var(--n-text-color-2);
 }
 
-/* Ensure clean nested look */
-.client-table :deep(.n-data-table-td--expand) {
-  background-color: var(--n-body-color) !important;
+/* Project rows: subtle background + left border accent for visual hierarchy */
+.client-table :deep(.project-row td) {
+  background-color: var(--n-color-modal) !important;
+}
+
+.client-table :deep(.project-row td:first-child) {
+  border-left: 3px solid var(--n-primary-color);
+  padding-left: 32px !important;
+}
+
+/* Project name cell with tree connector */
+.project-name-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding-left: 24px;
+}
+
+.tree-connector {
+  color: var(--n-border-color);
+  font-family: monospace;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1.8;
+}
+
+.project-info {
+  flex: 1;
 }
 </style>

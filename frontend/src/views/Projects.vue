@@ -4,6 +4,7 @@ import {
   NButton, NDataTable, NTag, NSpace, NProgress, NText, NIcon, type DataTableColumns,
   useMessage, useDialog
 } from 'naive-ui'
+import { useRouter } from 'vue-router'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import ProjectFormModal from '@/components/ProjectFormModal.vue'
@@ -16,6 +17,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOpenOutlined } from '
 
 const message = useMessage()
 const dialog = useDialog()
+const router = useRouter()
 const projectStore = useProjectStore()
 const clientStore = useClientStore()
 const { projects, loading } = storeToRefs(projectStore)
@@ -145,7 +147,7 @@ const columns: DataTableColumns<Project> = [
               circle: true,
               onClick: (e) => {
                 e.stopPropagation()
-                message.info(t('projects.manage', { name: row.name }))
+                router.push(`/projects/${row.id}`)
               }
             },
             { icon: () => h(FolderOpenOutlined) }

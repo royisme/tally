@@ -244,6 +244,13 @@ export default {
       archived: "已归档",
       completed: "已完成",
     },
+    detail: {
+      backToClients: "返回客户",
+      info: "项目信息",
+      timeEntries: "工时记录",
+      totalHours: "总工时",
+      notFound: "项目未找到",
+    },
   },
 
   // 发票
@@ -391,6 +398,21 @@ export default {
       status: "状态",
       notes: "备注",
       notesPlaceholder: "额外备注信息",
+      tabs: {
+        basic: "基本信息",
+        address: "地址信息",
+        settings: "其他设置",
+      },
+      billingCompany: "账单公司",
+      billingCompanyPlaceholder: "开票公司名称（可选）",
+      billingAddress: "账单地址",
+      billingAddressPlaceholder: "如与地址不同请填写",
+      billingCity: "城市",
+      billingCityPlaceholder: "城市",
+      billingProvince: "省份",
+      billingProvincePlaceholder: "省份",
+      billingPostalCode: "邮编",
+      billingPostalCodePlaceholder: "邮编",
     },
     project: {
       client: "客户",

@@ -131,18 +131,16 @@ const columns: DataTableColumns<TreeRow> = [
     render(row) {
       if (row.type === 'client') {
         const projectCount = row.children?.length || 0
-        return h('div', [
-          h('div', { style: 'font-weight: 600;' }, row.name),
+        // Use inline-flex to keep content on the same line as the tree expand icon
+        return h('span', { style: 'display: inline-flex; flex-direction: column;' }, [
+          h('span', { style: 'font-weight: 600;' }, row.name),
           h(NText, { depth: 3, style: 'font-size: 11px;' }, { default: () => t('clients.columns.projectsCount', { count: projectCount }) })
         ])
       } else {
-        // Project row - explicit indent with tree connector to show hierarchy
-        return h('div', { class: 'project-name-cell' }, [
-          h('span', { class: 'tree-connector' }, '└─'),
-          h('div', { class: 'project-info' }, [
-            h('div', { style: 'font-weight: 500;' }, row.name),
-            h(NText, { depth: 3, style: 'font-size: 11px;' }, { default: () => row.description })
-          ])
+        // Project row - NDataTable handles indentation automatically
+        return h('span', { style: 'display: inline-flex; flex-direction: column;' }, [
+          h('span', { style: 'font-weight: 500;' }, row.name),
+          h(NText, { depth: 3, style: 'font-size: 11px;' }, { default: () => row.description })
         ])
       }
     }
@@ -260,34 +258,11 @@ function rowClassName(row: TreeRow) {
   font-weight: 600;
   color: var(--n-text-color-2);
 }
+</style>
 
-/* Project rows: subtle background + left border accent for visual hierarchy */
-.client-table :deep(.project-row td) {
-  background-color: var(--n-color-modal) !important;
-}
-
-.client-table :deep(.project-row td:first-child) {
-  border-left: 3px solid var(--n-primary-color);
-  padding-left: 32px !important;
-}
-
-/* Project name cell with tree connector */
-.project-name-cell {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding-left: 24px;
-}
-
-.tree-connector {
-  color: var(--n-border-color);
-  font-family: monospace;
-  user-select: none;
-  flex-shrink: 0;
-  line-height: 1.8;
-}
-
-.project-info {
-  flex: 1;
+<style>
+/* Non-scoped styles for row class styling - following official Naive UI pattern */
+.project-row td {
+  background-color: rgba(0, 128, 0, 0.04) !important;
 }
 </style>

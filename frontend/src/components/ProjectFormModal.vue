@@ -9,6 +9,7 @@ interface Props {
   show: boolean
   project?: Project | null
   clients: Client[]
+  initialClientId?: number | null
 }
 
 interface Emits {
@@ -96,7 +97,7 @@ watch(() => props.project, (newProject) => {
     }
   } else {
     formValue.value = {
-      clientId: null,
+      clientId: props.initialClientId || null,
       name: '',
       description: '',
       hourlyRate: 0,

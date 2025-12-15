@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// SettingsLayout - simple wrapper that renders child routes
-// Navigation is handled by the main sidebar menu
+import PageContainer from '@/components/PageContainer.vue'
 </script>
 
 <template>
-  <router-view />
+  <PageContainer fill>
+    <router-view />
+  </PageContainer>
 </template>

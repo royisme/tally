@@ -10,6 +10,8 @@ import {
   NSwitch,
   useMessage,
   NCard,
+  NGrid,
+  NFormItemGi,
 } from "naive-ui";
 import { useSettingsStore } from "@/stores/settings";
 import { useAppStore } from "@/stores/app";
@@ -178,36 +180,41 @@ function handleThemeChange(value: string) {
   <div class="general-settings">
     <NCard :title="t('settings.general.cardTitle')" :bordered="false">
       <NForm ref="formRef" :model="form" :rules="rules" label-placement="top">
-        <NFormItem :label="t('settings.general.fields.currency')" path="currency">
-          <NSelect v-model:value="form.currency" :options="currencyOptions" :disabled="saving" />
-        </NFormItem>
+        <NGrid :cols="2" :x-gap="24" :y-gap="0">
+          <NFormItemGi :label="t('settings.general.fields.currency')" path="currency">
+            <NSelect v-model:value="form.currency" :options="currencyOptions" :disabled="saving" />
+          </NFormItemGi>
 
-        <NFormItem :label="t('settings.general.fields.defaultTaxRate')" path="defaultTaxRate">
-          <NInputNumber v-model:value="form.defaultTaxRate" :min="0" :max="1" :step="0.01" :disabled="saving" />
-          <div class="hint">{{ t("settings.general.hints.taxRate") }}</div>
-        </NFormItem>
+          <NFormItemGi :label="t('settings.general.fields.defaultTaxRate')" path="defaultTaxRate">
+            <NInputNumber v-model:value="form.defaultTaxRate" :min="0" :max="1" :step="0.01" :disabled="saving"
+              style="width: 100%" />
+            <template #feedback>
+              <span class="hint">{{ t("settings.general.hints.taxRate") }}</span>
+            </template>
+          </NFormItemGi>
 
-        <NFormItem :label="t('settings.general.fields.dateFormat')" path="dateFormat">
-          <NSelect v-model:value="form.dateFormat" :options="dateFormatOptions" :disabled="saving" />
-        </NFormItem>
+          <NFormItemGi :label="t('settings.general.fields.dateFormat')" path="dateFormat">
+            <NSelect v-model:value="form.dateFormat" :options="dateFormatOptions" :disabled="saving" />
+          </NFormItemGi>
 
-        <NFormItem :label="t('settings.general.fields.timezone')" path="timezone">
-          <NSelect v-model:value="form.timezone" :options="timezoneOptions" filterable :disabled="saving" />
-        </NFormItem>
+          <NFormItemGi :label="t('settings.general.fields.timezone')" path="timezone">
+            <NSelect v-model:value="form.timezone" :options="timezoneOptions" filterable :disabled="saving" />
+          </NFormItemGi>
 
-        <NFormItem :label="t('settings.general.fields.theme')">
-          <NSelect :value="appStore.theme" :options="[
-            { label: t('settings.general.options.theme.light'), value: 'light' },
-            { label: t('settings.general.options.theme.dark'), value: 'dark' },
-          ]" :disabled="saving" @update:value="handleThemeChange" />
-        </NFormItem>
+          <NFormItemGi :label="t('settings.general.fields.theme')">
+            <NSelect :value="appStore.theme" :options="[
+              { label: t('settings.general.options.theme.light'), value: 'light' },
+              { label: t('settings.general.options.theme.dark'), value: 'dark' },
+            ]" :disabled="saving" @update:value="handleThemeChange" />
+          </NFormItemGi>
 
-        <NFormItem :label="t('settings.general.fields.language')">
-          <NSelect v-model:value="form.language" :options="[
-            { label: t('settings.general.options.language.enUS'), value: 'en-US' },
-            { label: t('settings.general.options.language.zhCN'), value: 'zh-CN' },
-          ]" :disabled="saving" @update:value="(value) => appStore.setLocale(value as 'en-US' | 'zh-CN')" />
-        </NFormItem>
+          <NFormItemGi :label="t('settings.general.fields.language')">
+            <NSelect v-model:value="form.language" :options="[
+              { label: t('settings.general.options.language.enUS'), value: 'en-US' },
+              { label: t('settings.general.options.language.zhCN'), value: 'zh-CN' },
+            ]" :disabled="saving" @update:value="(value) => appStore.setLocale(value as 'en-US' | 'zh-CN')" />
+          </NFormItemGi>
+        </NGrid>
 
         <NSpace justify="end" style="margin-top: 24px">
           <NButton type="primary" :loading="saving" @click="handleSave">
@@ -232,11 +239,10 @@ function handleThemeChange(value: string) {
 
 <style scoped>
 .general-settings {
-  max-width: 800px;
+  width: 100%;
 }
 
 .hint {
-  margin-left: 8px;
   font-size: 12px;
   color: #888;
 }

@@ -12,6 +12,8 @@ import {
   NSwitch,
   NSelect,
   NAlert,
+  NGrid,
+  NFormItemGi,
 } from "naive-ui";
 import { useSettingsStore } from "@/stores/settings";
 import type { UserSettings } from "@/types";
@@ -21,7 +23,6 @@ const settingsStore = useSettingsStore();
 const message = useMessage();
 const { t } = useI18n();
 
-const formRef = ref<InstanceType<typeof NForm> | null>(null);
 const form = ref<UserSettings>({
   currency: "USD",
   defaultTaxRate: 0,
@@ -139,24 +140,26 @@ async function handleSave() {
       <!-- Sender Info Tab -->
       <NTabPane name="sender" :tab="t('settings.invoice.headerCardTitle')">
         <NForm label-placement="top">
-          <NFormItem :label="t('settings.invoice.fields.senderName')">
-            <NInput v-model:value="form.senderName" :disabled="saving" />
-          </NFormItem>
-          <NFormItem :label="t('settings.invoice.fields.senderCompany')">
-            <NInput v-model:value="form.senderCompany" :disabled="saving" />
-          </NFormItem>
-          <NFormItem :label="t('settings.invoice.fields.senderAddress')">
-            <NInput v-model:value="form.senderAddress" :disabled="saving" />
-          </NFormItem>
-          <NFormItem :label="t('settings.invoice.fields.senderPhone')">
-            <NInput v-model:value="form.senderPhone" :disabled="saving" />
-          </NFormItem>
-          <NFormItem :label="t('settings.invoice.fields.senderEmail')">
-            <NInput v-model:value="form.senderEmail" :disabled="saving" />
-          </NFormItem>
-          <NFormItem :label="t('settings.invoice.fields.senderPostalCode')">
-            <NInput v-model:value="form.senderPostalCode" :disabled="saving" />
-          </NFormItem>
+          <NGrid :cols="2" :x-gap="24" :y-gap="0">
+            <NFormItemGi :label="t('settings.invoice.fields.senderName')">
+              <NInput v-model:value="form.senderName" :disabled="saving" />
+            </NFormItemGi>
+            <NFormItemGi :label="t('settings.invoice.fields.senderCompany')">
+              <NInput v-model:value="form.senderCompany" :disabled="saving" />
+            </NFormItemGi>
+            <NFormItemGi :label="t('settings.invoice.fields.senderAddress')">
+              <NInput v-model:value="form.senderAddress" :disabled="saving" />
+            </NFormItemGi>
+            <NFormItemGi :label="t('settings.invoice.fields.senderPostalCode')">
+              <NInput v-model:value="form.senderPostalCode" :disabled="saving" />
+            </NFormItemGi>
+            <NFormItemGi :label="t('settings.invoice.fields.senderPhone')">
+              <NInput v-model:value="form.senderPhone" :disabled="saving" />
+            </NFormItemGi>
+            <NFormItemGi :label="t('settings.invoice.fields.senderEmail')">
+              <NInput v-model:value="form.senderEmail" :disabled="saving" />
+            </NFormItemGi>
+          </NGrid>
 
           <NSpace justify="end" style="margin-top: 24px">
             <NButton type="primary" :loading="saving" @click="handleSave">
@@ -213,6 +216,6 @@ async function handleSave() {
 
 <style scoped>
 .invoice-settings {
-  max-width: 800px;
+  width: 100%;
 }
 </style>

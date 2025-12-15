@@ -23,7 +23,6 @@ const message = useMessage();
 const { t } = useI18n();
 
 // Account Settings Form
-const accountFormRef = ref<InstanceType<typeof NForm> | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const accountForm = ref<dto.UpdateUserInput>({
   id: 0,
@@ -201,7 +200,7 @@ async function handleChangePassword() {
 
 <style scoped>
 .profile-settings {
-  max-width: 800px;
+  width: 100%;
 }
 
 .account-layout {

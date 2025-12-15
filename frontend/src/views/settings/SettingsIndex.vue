@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import { NCard, NGrid, NGi, NIcon, NSpace, NButton } from "naive-ui";
-import { h } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import {
   GlobalOutlined,
@@ -12,16 +12,7 @@ import {
 } from "@vicons/antd";
 import type { Component } from "vue";
 
-function renderIcon(icon: Component, size: number = 32) {
-  return () =>
-    h(
-      NIcon,
-      { size },
-      {
-        default: () => h(icon),
-      }
-    );
-}
+
 
 const router = useRouter();
 const { t } = useI18n();
@@ -84,18 +75,9 @@ function handleCategoryClick(path: string) {
 
     <NGrid cols="1 s:2 m:2 l:2 xl:2" x-gap="16" y-gap="16">
       <NGi v-for="category in categories" :key="category.key">
-        <NCard
-          :title="category.title"
-          :segmented="{ content: true, footer: 'soft' }"
-          hoverable
-          class="settings-card"
-        >
+        <NCard :title="category.title" :segmented="{ content: true, footer: 'soft' }" hoverable class="settings-card">
           <template #header-extra>
-            <NIcon
-              :component="category.icon"
-              :size="24"
-              :style="{ color: category.color }"
-            />
+            <NIcon :component="category.icon" :size="24" :style="{ color: category.color }" />
           </template>
 
           <div class="card-content">
@@ -104,14 +86,10 @@ function handleCategoryClick(path: string) {
 
           <template #footer>
             <NSpace justify="end">
-              <NButton
-                type="primary"
-                ghost
-                @click="handleCategoryClick(category.path)"
-              >
+              <NButton type="primary" ghost @click="handleCategoryClick(category.path)">
                 {{ t("common.configure") }}
                 <template #icon>
-                  <NIcon component="(props: Record<string, unknown>) => h(RightOutlined, props)" />
+                  <NIcon :component="RightOutlined" />
                 </template>
               </NButton>
             </NSpace>
@@ -124,8 +102,7 @@ function handleCategoryClick(path: string) {
 
 <style scoped>
 .settings-index {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .settings-header {

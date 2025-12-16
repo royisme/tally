@@ -1,19 +1,45 @@
 <script setup lang="ts">
-import { h, onMounted, ref, computed } from 'vue'
-import {
-  NButton, NDataTable, NSpace, NText, NNumberAnimation,
-  NModal, NInput, NRow, NCol, NEmpty, NStatistic,
-  type DataTableColumns, NPopconfirm, useMessage
-} from 'naive-ui'
+import { onMounted, ref, computed } from 'vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import InvoiceFormModal from '@/components/InvoiceFormModal.vue'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Textarea } from '@/components/ui/textarea'
 import { useInvoiceStore, type EnrichedInvoice } from '@/stores/invoices'
 import { useClientStore } from '@/stores/clients'
 import { useTimesheetStore } from '@/stores/timesheet'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import type { Invoice, CreateInvoiceInput, UpdateInvoiceInput } from '@/types'
+import { toast } from 'vue-sonner'
 import {
   Plus,
   Download,
@@ -23,11 +49,11 @@ import {
   Search,
   Check,
   Undo,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-vue-next'
 import { api } from '@/api'
 
-const message = useMessage()
 const invoiceStore = useInvoiceStore()
 const clientStore = useClientStore()
 const timesheetStore = useTimesheetStore()
@@ -79,8 +105,6 @@ function handleEditInvoice(invoice: Invoice) {
   showModal.value = true
 }
 
-
-
 async function handleDownload(invoice: EnrichedInvoice) {
   try {
     pdfLoading.value = true
@@ -88,7 +112,7 @@ async function handleDownload(invoice: EnrichedInvoice) {
     messageDraft.value = await invoiceStore.getDefaultMessage(invoice.id)
     messageModalVisible.value = true
   } catch {
-    message.error(t('invoices.downloadError'))
+    toast.error(t('invoices.downloadError'))
   } finally {
     pdfLoading.value = false
   }
@@ -106,13 +130,13 @@ async function confirmDownload() {
     const { SaveAndOpenPDF } = await import('@/wailsjs/go/main/App')
     const savedPath = await SaveAndOpenPDF(base64, `INV-${exportingInvoice.value.number}.pdf`)
     if (savedPath) {
-      message.success(t('invoices.downloaded'))
+      toast.success(t('invoices.downloaded'))
     }
     // If savedPath is empty, user cancelled - no error
     messageModalVisible.value = false
   } catch (e) {
     console.error('PDF download error:', e)
-    message.error(t('invoices.downloadError'))
+    toast.error(t('invoices.downloadError'))
   } finally {
     pdfLoading.value = false
   }
@@ -122,14 +146,14 @@ async function handleSend(invoice: EnrichedInvoice) {
   try {
     sendLoading.value = true
     await invoiceStore.sendEmail(invoice.id)
-    message.success(t('invoices.sendSuccess'))
+    toast.success(t('invoices.sendSuccess'))
   } catch (e: any) {
     if (e && typeof e === 'string') {
-      message.error(e)
+      toast.error(e)
     } else if (e instanceof Error) {
-      message.error(e.message)
+      toast.error(e.message)
     } else {
-      message.error(t('invoices.sendError'))
+      toast.error(t('invoices.sendError'))
     }
   } finally {
     sendLoading.value = false
@@ -139,9 +163,9 @@ async function handleSend(invoice: EnrichedInvoice) {
 async function handleDelete(invoice: EnrichedInvoice) {
   try {
     await invoiceStore.deleteInvoice(invoice.id)
-    message.success(t('invoices.deleteSuccess'))
-  } catch (e) {
-    message.error(t('invoices.deleteError'))
+    toast.success(t('invoices.deleteSuccess'))
+  } catch {
+    toast.error(t('invoices.deleteError'))
   }
 }
 
@@ -149,9 +173,9 @@ async function handleTogglePaymentStatus(invoice: EnrichedInvoice) {
   try {
     const newStatus = invoice.status === 'paid' ? 'sent' : 'paid'
     await invoiceStore.updateStatus(invoice.id, newStatus)
-    message.success(t('invoices.updateSuccess'))
-  } catch (e) {
-    message.error(t('invoices.saveError'))
+    toast.success(t('invoices.updateSuccess'))
+  } catch {
+    toast.error(t('invoices.saveError'))
   }
 }
 
@@ -160,9 +184,9 @@ async function handleUpdateInvoice(payload: { input: UpdateInvoiceInput; timeEnt
     await invoiceStore.updateInvoice(payload.input)
     await api.invoices.setTimeEntries({ invoiceId: payload.input.id, timeEntryIds: payload.timeEntryIds })
     await invoiceStore.fetchInvoices() // Refresh to get updated totals/status
-    message.success(t('invoices.updateSuccess'))
+    toast.success(t('invoices.updateSuccess'))
   } catch {
-    message.error(t('invoices.saveError'))
+    toast.error(t('invoices.saveError'))
   }
 }
 
@@ -172,9 +196,9 @@ async function handleCreateInvoiceFromEntries(payload: { input: CreateInvoiceInp
     await api.invoices.setTimeEntries({ invoiceId: created.id, timeEntryIds: payload.timeEntryIds })
     await invoiceStore.fetchInvoices()
     await timesheetStore.fetchTimesheet()
-    message.success(t('invoices.createSuccess'))
+    toast.success(t('invoices.createSuccess'))
   } catch {
-    message.error(t('invoices.saveError'))
+    toast.error(t('invoices.saveError'))
   }
 }
 
@@ -184,440 +208,211 @@ onMounted(() => {
   timesheetStore.fetchTimesheet()
 })
 
-const columns: DataTableColumns<EnrichedInvoice> = [
-  {
-    title: () => t('invoices.columns.invoiceNumber'),
-    key: 'number',
-    width: 160,
-    render(row) {
-      return h(
-        'div',
-        {
-          class: 'invoice-number-cell',
-          onClick: () => handleEditInvoice(row)
-        },
-        [
-          h(FileText, { class: 'w-4 h-4 mr-2 text-muted-foreground' }),
-          h(NText, { strong: true, style: 'cursor: pointer; transition: color 0.2s;' }, { default: () => row.number })
-        ]
-      )
-    }
-  },
-  {
-    title: () => t('invoices.columns.client'),
-    key: 'clientName',
-    width: 120,
-    render(row) {
-      return h(NText, { style: 'font-weight: 500;' }, { default: () => row.clientName })
-    }
-  },
-  {
-    title: () => t('invoices.columns.issueDate'),
-    key: 'issueDate',
-    width: 130,
-    render(row) {
-      return h(NText, { depth: 3 }, { default: () => row.issueDate })
-    }
-  },
-  {
-    title: () => t('invoices.columns.amount'),
-    key: 'total',
-    align: 'right',
-    width: 130,
-    render(row) {
-      return h(
-        NText,
-        { strong: true, style: 'font-variant-numeric: tabular-nums; font-size: 14px;' },
-        { default: () => `${row.clientCurrency} ${row.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}` }
-      )
-    }
-  },
-  {
-    title: () => t('invoices.columns.status'),
-    key: 'status',
-    width: 140,
-    align: 'center',
-    render(row) {
-      let color = ''
-      if (row.status === 'paid') { color = '#18a058' }
-      else if (row.status === 'sent') { color = '#f0a020' }
-      else if (row.status === 'overdue') { color = '#d03050' }
-      else { color = '#666' }
+function getStatusColor(status: string) {
+  if (status === 'paid') return 'text-green-600 bg-green-600/10'
+  if (status === 'sent') return 'text-amber-600 bg-amber-600/10'
+  if (status === 'overdue') return 'text-red-600 bg-red-600/10'
+  return 'text-muted-foreground bg-muted'
+}
 
-      // Custom dot-style tag
-      return h(
-        'div',
-        {
-          style: {
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '4px 10px',
-            borderRadius: '12px',
-            backgroundColor: `${color}15`, // 15% opacity
-            color: color,
-            fontSize: '12px',
-            fontWeight: '600'
-          }
-        },
-        [
-          h('div', {
-            style: {
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: color,
-              marginRight: '6px'
-            }
-          }),
-          t(`invoices.status.${row.status}`).toUpperCase()
-        ]
-      )
-    }
-  },
-  {
-    title: () => t('invoices.columns.actions'),
-    key: 'actions',
-    width: 140,
-    fixed: 'right' as const,
-    align: 'right',
-    render(row) {
-      return h(NSpace, { size: 4, justify: 'end', wrap: false }, {
-        default: () => [
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              circle: true,
-              class: 'action-btn',
-              loading: pdfLoading.value && exportingInvoice.value?.id === row.id,
-              onClick: (e: MouseEvent) => { e.stopPropagation(); handleDownload(row); }
-            },
-            { icon: () => h(Download, { class: 'w-4 h-4' }) }
-          ),
-          h(
-            NPopconfirm,
-            {
-              onPositiveClick: (e: MouseEvent) => { e.stopPropagation(); handleDelete(row); },
-              onNegativeClick: (e: MouseEvent) => { e.stopPropagation(); }
-            },
-            {
-              trigger: () => h(
-                NButton,
-                {
-                  size: 'small',
-                  quaternary: true,
-                  circle: true,
-                  class: 'action-btn',
-                  onClick: (e: MouseEvent) => e.stopPropagation()
-                },
-                { icon: () => h(Trash2, { class: 'w-4 h-4' }) }
-              ),
-              default: () => t('common.confirmDelete')
-            }
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              circle: true,
-              class: 'action-btn',
-              loading: sendLoading.value,
-              onClick: (e: MouseEvent) => { e.stopPropagation(); handleSend(row); }
-            },
-            { icon: () => h(Mail, { class: 'w-4 h-4' }) }
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              circle: true,
-              class: 'action-btn',
-              title: row.status === 'paid' ? t('invoices.actions.markAsUnpaid') : t('invoices.actions.markAsPaid'),
-              onClick: (e: MouseEvent) => { e.stopPropagation(); handleTogglePaymentStatus(row); }
-            },
-            { icon: () => h(row.status === 'paid' ? Undo : Check, { class: 'w-4 h-4' }) }
-          )
-        ]
-      })
-    }
-  }
-]
+function getStatusDotColor(status: string) {
+  if (status === 'paid') return 'bg-green-600'
+  if (status === 'sent') return 'bg-amber-600'
+  if (status === 'overdue') return 'bg-red-600'
+  return 'bg-muted-foreground'
+}
+
+function formatCurrency(value: number) {
+  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 </script>
 
 <template>
   <PageContainer>
     <PageHeader :title="t('invoices.title')" :subtitle="t('invoices.subtitle')">
       <template #extra>
-        <n-button type="primary" class="create-btn" @click="handleNewInvoice">
-          <template #icon>
-            <Plus class="w-4 h-4" />
-          </template>
+        <Button class="shadow-lg shadow-primary/30" @click="handleNewInvoice">
+          <Plus class="w-4 h-4 mr-2" />
           {{ t('invoices.createInvoice') }}
-        </n-button>
+        </Button>
       </template>
     </PageHeader>
 
     <InvoiceFormModal v-model:show="showModal" :invoice="editingInvoice" :clients="clients"
       @create="handleCreateInvoiceFromEntries" @update="handleUpdateInvoice" />
 
-    <!-- Stats Grid moved to scrollable content -->
-    <div class="view-content">
+    <!-- Content -->
+    <div class="space-y-6">
       <!-- Stats Grid -->
-      <div class="stats-grid-container">
-        <n-row :gutter="24">
-          <n-col :span="12">
-            <div class="stat-card primary">
-              <div class="stat-icon">
-                <DollarSign class="w-6 h-6" />
-              </div>
-              <n-statistic :label="t('invoices.stats.outstandingAmount')">
-                <template #default>
-                  <n-number-animation :from="0" :to="stats.totalDue" :precision="2" show-separator />
-                </template>
-                <template #suffix>
-                  <span class="currency">USD</span>
-                </template>
-              </n-statistic>
-            </div>
-          </n-col>
-          <n-col :span="12">
-            <div class="stat-card secondary">
-              <div class="stat-icon secondary">
-                <FileText class="w-6 h-6" />
-              </div>
-              <n-statistic :label="t('invoices.stats.totalInvoices')">
-                <n-number-animation :from="0" :to="enrichedInvoices.length" />
-              </n-statistic>
-            </div>
-          </n-col>
-        </n-row>
-      </div>
-
-      <div class="content-wrapper">
-        <!-- Search and Filter Bar -->
-        <div class="toolbar">
-          <n-input v-model:value="searchQuery" :placeholder="t('invoices.searchPlaceholder')" class="search-input">
-            <template #prefix>
-              <Search class="w-4 h-4 text-muted-foreground" />
-            </template>
-          </n-input>
-          <div class="filters">
-            <n-button quaternary size="small" :type="statusFilter === null ? 'primary' : 'default'"
-              @click="statusFilter = null">
-              {{ t('invoices.filter.all') }}
-            </n-button>
-            <n-button quaternary size="small" :type="statusFilter === 'draft' ? 'primary' : 'default'"
-              @click="statusFilter = 'draft'">
-              {{ t('invoices.filter.draft') }}
-            </n-button>
-            <n-button quaternary size="small" :type="statusFilter === 'sent' ? 'primary' : 'default'"
-              @click="statusFilter = 'sent'">
-              {{ t('invoices.filter.sent') }}
-            </n-button>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div
+          class="stat-card primary flex items-center gap-5 p-6 rounded-2xl border bg-linear-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-card border-blue-200/50 dark:border-blue-900/50 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+          <div
+            class="flex items-center justify-center size-12 rounded-xl bg-white dark:bg-blue-900/30 shadow-sm text-primary">
+            <DollarSign class="size-6" />
+          </div>
+          <div>
+            <p class="text-sm text-muted-foreground">{{ t('invoices.stats.outstandingAmount') }}</p>
+            <p class="text-2xl font-bold tabular-nums">
+              {{ formatCurrency(stats.totalDue) }}
+              <span class="text-sm font-medium text-muted-foreground ml-1">USD</span>
+            </p>
           </div>
         </div>
 
-        <n-data-table :columns="columns" :data="filteredInvoices" :loading="loading" :bordered="true"
-          :row-class-name="() => 'invoice-row'" class="invoice-table">
-          <template #empty>
-            <div class="empty-state">
-              <n-empty :description="hasActiveFilters ? t('invoices.empty.noMatch') : t('invoices.empty.description')"
-                size="large">
-                <template #extra v-if="!hasActiveFilters">
-                  <n-button dashed size="small" @click="handleNewInvoice">{{ t('invoices.empty.action') }}</n-button>
-                </template>
-              </n-empty>
-            </div>
-          </template>
-        </n-data-table>
+        <div
+          class="stat-card secondary flex items-center gap-5 p-6 rounded-2xl border bg-linear-to-br from-gray-50 to-white dark:from-gray-900/20 dark:to-card border-border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+          <div
+            class="flex items-center justify-center size-12 rounded-xl bg-white dark:bg-gray-800/50 shadow-sm text-muted-foreground">
+            <FileText class="size-6" />
+          </div>
+          <div>
+            <p class="text-sm text-muted-foreground">{{ t('invoices.stats.totalInvoices') }}</p>
+            <p class="text-2xl font-bold tabular-nums">{{ enrichedInvoices.length }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table Section -->
+      <div class="bg-card rounded-2xl p-6 shadow-sm border">
+        <!-- Search and Filter Bar -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div class="relative max-w-sm w-full">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input v-model="searchQuery" :placeholder="t('invoices.searchPlaceholder')" class="pl-9" />
+          </div>
+          <div class="flex gap-2 bg-muted p-1 rounded-lg">
+            <Button variant="ghost" size="sm" :class="{ 'bg-background shadow-sm': statusFilter === null }"
+              @click="statusFilter = null">
+              {{ t('invoices.filter.all') }}
+            </Button>
+            <Button variant="ghost" size="sm" :class="{ 'bg-background shadow-sm': statusFilter === 'draft' }"
+              @click="statusFilter = 'draft'">
+              {{ t('invoices.filter.draft') }}
+            </Button>
+            <Button variant="ghost" size="sm" :class="{ 'bg-background shadow-sm': statusFilter === 'sent' }"
+              @click="statusFilter = 'sent'">
+              {{ t('invoices.filter.sent') }}
+            </Button>
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div v-if="loading" class="flex justify-center items-center py-12">
+          <Loader2 class="size-8 animate-spin text-muted-foreground" />
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="filteredInvoices.length === 0"
+          class="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-lg bg-muted/30">
+          <FileText class="size-12 text-muted-foreground/50 mb-4" />
+          <p class="text-muted-foreground mb-4">
+            {{ hasActiveFilters ? t('invoices.empty.noMatch') : t('invoices.empty.description') }}
+          </p>
+          <Button v-if="!hasActiveFilters" variant="outline" size="sm" @click="handleNewInvoice">
+            {{ t('invoices.empty.action') }}
+          </Button>
+        </div>
+
+        <!-- Table -->
+        <Table v-else>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[160px]">{{ t('invoices.columns.invoiceNumber') }}</TableHead>
+              <TableHead class="w-[120px]">{{ t('invoices.columns.client') }}</TableHead>
+              <TableHead class="w-[130px]">{{ t('invoices.columns.issueDate') }}</TableHead>
+              <TableHead class="w-[130px] text-right">{{ t('invoices.columns.amount') }}</TableHead>
+              <TableHead class="w-[140px] text-center">{{ t('invoices.columns.status') }}</TableHead>
+              <TableHead class="w-[140px] text-right">{{ t('invoices.columns.actions') }}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="row in filteredInvoices" :key="row.id"
+              class="cursor-pointer hover:bg-muted/50 transition-colors">
+              <TableCell>
+                <div class="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                  @click="handleEditInvoice(row)">
+                  <FileText class="size-4 text-muted-foreground" />
+                  <span class="font-semibold">{{ row.number }}</span>
+                </div>
+              </TableCell>
+              <TableCell class="font-medium">{{ row.clientName }}</TableCell>
+              <TableCell class="text-muted-foreground">{{ row.issueDate }}</TableCell>
+              <TableCell class="text-right font-semibold tabular-nums">
+                {{ row.clientCurrency }} {{ formatCurrency(row.total) }}
+              </TableCell>
+              <TableCell class="text-center">
+                <span
+                  :class="['inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold', getStatusColor(row.status)]">
+                  <span :class="['size-1.5 rounded-full', getStatusDotColor(row.status)]"></span>
+                  {{ t(`invoices.status.${row.status}`).toUpperCase() }}
+                </span>
+              </TableCell>
+              <TableCell class="text-right">
+                <div class="flex gap-1 justify-end items-center">
+                  <Button variant="ghost" size="icon" class="size-8"
+                    :disabled="pdfLoading && exportingInvoice?.id === row.id" @click.stop="handleDownload(row)">
+                    <Download class="size-4" />
+                  </Button>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger as-child>
+                      <Button variant="ghost" size="icon" class="size-8 text-destructive hover:text-destructive"
+                        @click.stop>
+                        <Trash2 class="size-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{{ t('common.confirmDelete') }}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete invoice {{ row.number }}.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction @click="handleDelete(row)">Delete</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <Button variant="ghost" size="icon" class="size-8" :disabled="sendLoading"
+                    @click.stop="handleSend(row)">
+                    <Mail class="size-4" />
+                  </Button>
+
+                  <Button variant="ghost" size="icon" class="size-8"
+                    :title="row.status === 'paid' ? t('invoices.actions.markAsUnpaid') : t('invoices.actions.markAsPaid')"
+                    @click.stop="handleTogglePaymentStatus(row)">
+                    <component :is="row.status === 'paid' ? Undo : Check" class="size-4" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       </div>
     </div>
 
-    <!-- Modals -->
-
-
-    <n-modal v-model:show="messageModalVisible" preset="dialog" :title="t('invoices.preparePdf.title')"
-      :positive-text="t('invoices.preparePdf.positive')" :negative-text="t('invoices.preparePdf.negative')"
-      :loading="pdfLoading" @positive-click="confirmDownload">
-      <n-input v-model:value="messageDraft" type="textarea" :autosize="{ minRows: 4, maxRows: 8 }"
-        :placeholder="t('invoices.preparePdf.messagePlaceholder')" />
-    </n-modal>
+    <!-- PDF Message Dialog -->
+    <Dialog v-model:open="messageModalVisible">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ t('invoices.preparePdf.title') }}</DialogTitle>
+          <DialogDescription>Customize the message to include in the PDF invoice.</DialogDescription>
+        </DialogHeader>
+        <Textarea v-model="messageDraft" :placeholder="t('invoices.preparePdf.messagePlaceholder')"
+          class="min-h-[120px]" />
+        <DialogFooter>
+          <Button variant="outline" @click="messageModalVisible = false">
+            {{ t('invoices.preparePdf.negative') }}
+          </Button>
+          <Button :disabled="pdfLoading" @click="confirmDownload">
+            <Loader2 v-if="pdfLoading" class="size-4 mr-2 animate-spin" />
+            {{ t('invoices.preparePdf.positive') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </PageContainer>
 </template>
-
-<style scoped>
-.view-content {
-  /* No flex layout to avoid overlap issues with grid */
-  display: block;
-}
-
-.stats-grid-container {
-  margin-bottom: 24px;
-  padding: 2px 12px;
-  /* 12px horizontal padding to compensate for n-row gutter of 24px (-12px margin) */
-}
-
-
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: rgba(32, 128, 240, 0.1);
-  color: var(--n-primary-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-}
-
-.stat-icon.secondary {
-  background: rgba(100, 100, 100, 0.1);
-  color: var(--n-text-color-3);
-}
-
-
-
-.currency {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--n-text-color-3);
-  margin-left: 8px;
-}
-
-.content-wrapper {
-  background: var(--n-card-color);
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
-}
-
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  gap: 16px;
-}
-
-.search-input {
-  max-width: 300px;
-}
-
-.filters {
-  display: flex;
-  gap: 8px;
-  background: var(--n-color-modal);
-  padding: 4px;
-  border-radius: 8px;
-}
-
-/* Table Styling */
-.invoice-table :deep(.n-data-table-th) {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--n-text-color-3);
-  background: #fafafc;
-  border-bottom: 1px solid var(--n-divider-color);
-  padding: 12px 16px;
-}
-
-.invoice-table :deep(.n-data-table-td) {
-  padding: 16px;
-  border-bottom: 1px solid var(--n-divider-color) !important;
-}
-
-.invoice-table :deep(.invoice-row) {
-  transition: background-color 0.2s;
-  cursor: default;
-}
-
-.invoice-table :deep(.invoice-row:hover) {
-  background-color: rgba(0, 0, 0, 0.015);
-}
-
-.invoice-table :deep(.invoice-number-cell) {
-  display: flex;
-  align-items: center;
-}
-
-.invoice-table :deep(.invoice-number-cell:hover .n-text) {
-  color: var(--n-primary-color);
-  text-decoration: underline;
-}
-
-.create-btn {
-  border-radius: 8px;
-  font-weight: 600;
-  height: 40px;
-  padding: 0 20px;
-  box-shadow: 0 4px 14px rgba(32, 128, 240, 0.3);
-}
-
-.action-btn:hover {
-  background-color: var(--n-action-color);
-  color: var(--n-primary-color);
-}
-
-
-.empty-state {
-  border: 2px dashed #d9d9d9;
-  /* Explicit darker gray for visibility */
-  border-radius: 8px;
-  padding: 32px;
-  margin: 16px 0;
-  background-color: #fafafa;
-  /* Slight background contrast */
-  display: flex;
-  justify-content: center;
-}
-
-/* Stat card gradients/colors */
-.stat-card {
-  background: var(--n-card-color);
-  border-radius: 16px;
-  padding: 24px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  /* slightly visible border */
-  transition: transform 0.2s, box-shadow 0.2s;
-  /* height: 100%; removed to prevent overflow issues in simple row layout */
-}
-
-.stat-card.primary {
-  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
-  border-color: rgba(32, 128, 240, 0.2);
-}
-
-.stat-card.secondary {
-  background: linear-gradient(135deg, #f9f9f9 0%, #ffffff 100%);
-  border-color: rgba(0, 0, 0, 0.08);
-
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-}
-
-.stat-card.primary .stat-icon {
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 12px rgba(32, 128, 240, 0.15);
-}
-
-.stat-card.secondary .stat-icon {
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-</style>

@@ -4,14 +4,20 @@ import zhCN from "./zh-CN";
 import zodZhCN from "zod-i18n-map/locales/zh-CN/zod.json";
 import zodEn from "zod-i18n-map/locales/en/zod.json";
 import type { Locale } from "@/locales/types";
+import type { LocaleMessageValue, VueMessageType } from "vue-i18n";
 import { allModules, collectModuleMessages } from "@/modules/registry";
 
+// Define the message dictionary type that vue-i18n expects
+type MessageDictionary = {
+  [key: string]: LocaleMessageValue<VueMessageType> | MessageDictionary;
+};
+
 // Helper to convert i18next style placeholders {{param}} to vue-i18n style {param}
-function convertToVueI18n(messages: unknown): unknown {
+function convertToVueI18n<T>(messages: T): T {
   if (typeof messages === "string") {
     return messages
-      .replace(/{{\s*-\s*([^}]+)\s*}}/g, "{$1}")
-      .replace(/{{\s*([^}]+)\s*}}/g, "{$1}");
+      .replace(/\{\{\s*-\s*([^}]+)\s*\}\}/g, "{$1}")
+      .replace(/\{\{\s*([^}]+)\s*\}\}/g, "{$1}") as T;
   }
   if (messages && typeof messages === "object" && !Array.isArray(messages)) {
     const record = messages as Record<string, unknown>;
@@ -19,12 +25,15 @@ function convertToVueI18n(messages: unknown): unknown {
     for (const [key, value] of Object.entries(record)) {
       out[key] = convertToVueI18n(value);
     }
-    return out;
+    return out as T;
   }
   return messages;
 }
 
-function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+function deepMerge(
+  target: MessageDictionary,
+  source: MessageDictionary
+): MessageDictionary {
   for (const [key, value] of Object.entries(source)) {
     const existing = target[key];
     if (
@@ -35,7 +44,10 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
       typeof value === "object" &&
       !Array.isArray(value)
     ) {
-      target[key] = deepMerge(existing as Record<string, unknown>, value as Record<string, unknown>);
+      target[key] = deepMerge(
+        existing as MessageDictionary,
+        value as MessageDictionary
+      );
     } else {
       target[key] = value;
     }
@@ -43,8 +55,11 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   return target;
 }
 
-function mergeLocaleMessages(base: Record<string, unknown>, extras: Array<Record<string, unknown>>): Record<string, unknown> {
-  const merged: Record<string, unknown> = { ...base };
+function mergeLocaleMessages(
+  base: MessageDictionary,
+  extras: MessageDictionary[]
+): MessageDictionary {
+  const merged: MessageDictionary = { ...base };
   for (const extra of extras) {
     deepMerge(merged, extra);
   }
@@ -52,20 +67,18 @@ function mergeLocaleMessages(base: Record<string, unknown>, extras: Array<Record
 }
 
 export const messages = {
-  "en-US": mergeLocaleMessages(
-    enUS as unknown as Record<string, unknown>,
-    [
-      ...collectModuleMessages(allModules).map((m) => (m["en-US"] ?? {}) as Record<string, unknown>),
-      convertToVueI18n(zodEn) as Record<string, unknown>,
-    ],
-  ),
-  "zh-CN": mergeLocaleMessages(
-    zhCN as unknown as Record<string, unknown>,
-    [
-      ...collectModuleMessages(allModules).map((m) => (m["zh-CN"] ?? {}) as Record<string, unknown>),
-      convertToVueI18n(zodZhCN) as Record<string, unknown>,
-    ],
-  ),
+  "en-US": mergeLocaleMessages(enUS as MessageDictionary, [
+    ...collectModuleMessages(allModules).map(
+      (m) => (m["en-US"] ?? {}) as MessageDictionary
+    ),
+    convertToVueI18n(zodEn) as MessageDictionary,
+  ]),
+  "zh-CN": mergeLocaleMessages(zhCN as MessageDictionary, [
+    ...collectModuleMessages(allModules).map(
+      (m) => (m["zh-CN"] ?? {}) as MessageDictionary
+    ),
+    convertToVueI18n(zodZhCN) as MessageDictionary,
+  ]),
 };
 
 export { enUS, zhCN };

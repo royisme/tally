@@ -187,6 +187,17 @@ export const api = isWailsRuntime
             cashFlow: 0,
           }), // Placeholder until backend service exists
         },
+        accounts: {
+          list: async () => [], // Placeholder
+        },
+        settings: {
+          get: async () => ({
+            autoCategorize: false,
+            autoReconcile: false,
+            userId: 0,
+          }), // Placeholder
+          update: async (input: any) => input, // Placeholder
+        },
       },
     }
   : {
@@ -297,6 +308,17 @@ export const api = isWailsRuntime
             totalExpense: 0,
             cashFlow: 0,
           }),
+        },
+        accounts: {
+          list: async () => [],
+        },
+        settings: {
+          get: async () => ({
+            autoCategorize: false,
+            autoReconcile: false,
+            userId: 0,
+          }),
+          update: async (input: any) => input,
         },
       },
     };

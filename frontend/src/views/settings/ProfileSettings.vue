@@ -1,60 +1,73 @@
 <script setup lang="ts">
-import { onMounted, ref, reactive } from "vue";
-import {
-  NForm,
-  NFormItem,
-  NInput,
-  NSpace,
-  NButton,
-  useMessage,
-  NCard,
-  NDivider,
-  NAvatar,
-  NTooltip,
-} from "naive-ui";
+import { onMounted, ref } from "vue";
 import { RefreshCw, Upload } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
+import { toast } from "vue-sonner";
+import { useForm } from "vee-validate";
+import { toTypedSchema } from "@vee-validate/zod";
+
 import { useAuthStore } from "@/stores/auth";
 import { dto } from "@/wailsjs/go/models";
-import { useI18n } from "vue-i18n";
+
+import { profileSettingsSchema, changePasswordSchema } from "@/schemas/settings";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const authStore = useAuthStore();
-const message = useMessage();
 const { t } = useI18n();
 
-// Account Settings Form
-const fileInputRef = ref<HTMLInputElement | null>(null);
-const accountForm = ref<dto.UpdateUserInput>({
-  id: 0,
-  username: "",
-  email: "",
-  avatarUrl: "",
-  settingsJson: "",
-});
-const passwordForm = reactive({
-  oldPassword: "",
-  newPassword: "",
-  confirmPassword: "",
+// Profile Form
+const profileFormSchema = toTypedSchema(profileSettingsSchema);
+const profileForm = useForm({
+  validationSchema: profileFormSchema,
 });
 
+// Password Form
+const passwordFormSchema = toTypedSchema(changePasswordSchema);
+const passwordForm = useForm({
+  validationSchema: passwordFormSchema,
+});
+
+const fileInputRef = ref<HTMLInputElement | null>(null);
 const accountSaving = ref(false);
 
 onMounted(() => {
-  // Load Account Settings
   if (authStore.currentUser) {
-    accountForm.value = {
-      id: authStore.currentUser.id,
+    profileForm.setValues({
       username: authStore.currentUser.username,
       email: authStore.currentUser.email,
       avatarUrl: authStore.currentUser.avatarUrl,
-      settingsJson: authStore.currentUser.settingsJson,
-    };
+    });
   }
 });
 
 function handleRandomAvatar() {
   const seed = Math.random().toString(36).substring(7);
   // Use Dicebear Avataaars
-  accountForm.value.avatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${seed}`;
+  const newAvatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${seed}`;
+  profileForm.setFieldValue('avatarUrl', newAvatarUrl);
 }
 
 function handleUploadAvatar() {
@@ -67,186 +80,185 @@ function onFileChange(event: Event) {
   if (file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      if (typeof e.target?.result === 'string') {
-        accountForm.value.avatarUrl = e.target.result;
+      if (typeof e.target?.result === "string") {
+        profileForm.setFieldValue('avatarUrl', e.target.result);
       }
     };
     reader.readAsDataURL(file);
   }
 }
 
-async function handleUpdateProfile() {
+const onProfileSubmit = profileForm.handleSubmit(async (values) => {
+  if (!authStore.currentUser) return;
+
   try {
     accountSaving.value = true;
-    await authStore.updateProfile(accountForm.value);
-    message.success(t("settings.profile.messages.saved"));
+    const input = new dto.UpdateUserInput({
+      id: authStore.currentUser.id,
+      username: values.username,
+      email: values.email,
+      avatarUrl: values.avatarUrl || "",
+      settingsJson: authStore.currentUser.settingsJson, // Keep existing settings
+    });
+
+    await authStore.updateProfile(input);
+    toast.success(t("settings.profile.messages.saved"));
   } catch (e) {
-    message.error(e instanceof Error ? e.message : t("settings.profile.messages.saveError"));
+    toast.error(e instanceof Error ? e.message : t("settings.profile.messages.saveError"));
   } finally {
     accountSaving.value = false;
   }
-}
+});
 
-async function handleChangePassword() {
-  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-    message.error(t("settings.profile.validation.passwordMismatch"));
-    return;
-  }
-  if (!passwordForm.oldPassword || !passwordForm.newPassword) {
-    message.error(t("settings.profile.validation.passwordRequired"));
-    return;
-  }
+const onPasswordSubmit = passwordForm.handleSubmit(async (values) => {
+  if (!authStore.currentUser) return;
 
   try {
     accountSaving.value = true;
     const input = new dto.ChangePasswordInput({
-      id: accountForm.value.id,
-      oldPassword: passwordForm.oldPassword,
-      newPassword: passwordForm.newPassword
+      id: authStore.currentUser.id,
+      oldPassword: values.oldPassword,
+      newPassword: values.newPassword,
     });
 
     await authStore.changePassword(input);
-    message.success(t("settings.profile.messages.saved"));
-    // Clear password fields
-    passwordForm.oldPassword = "";
-    passwordForm.newPassword = "";
-    passwordForm.confirmPassword = "";
+    toast.success(t("settings.profile.messages.saved"));
+    passwordForm.resetForm();
   } catch (e) {
-    message.error(e instanceof Error ? e.message : t("settings.profile.messages.saveError"));
+    toast.error(e instanceof Error ? e.message : t("settings.profile.messages.saveError"));
   } finally {
     accountSaving.value = false;
   }
+});
+
+function getInitials(username: string): string {
+  return username?.slice(0, 2).toUpperCase() || "U";
 }
 </script>
 
 <template>
-  <div class="profile-settings">
-    <NCard :bordered="false" :title="t('settings.profile.tabs.account')">
-      <NForm ref="accountFormRef" label-placement="top">
+  <div class="profile-settings space-y-6">
+    <Card>
+      <CardHeader>
+        <CardTitle>{{ t("settings.profile.tabs.account") }}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <!-- Profile Form -->
+        <form @submit="onProfileSubmit">
+          <div class="flex gap-12 items-start mb-6">
+            <!-- Left Column: Avatar & Actions -->
+            <div class="flex flex-col items-center gap-5 min-w-[160px] pt-2">
+              <FormField v-slot="{ value }" name="avatarUrl">
+                <div class="relative inline-block">
+                  <Avatar class="size-28">
+                    <AvatarImage :src="value" :alt="profileForm.values.username" />
+                    <AvatarFallback>{{ getInitials(profileForm.values.username || '') }}</AvatarFallback>
+                  </Avatar>
 
-        <div class="account-layout">
-          <!-- Left Column: Avatar & Actions -->
-          <div class="avatar-column">
-            <div class="avatar-wrapper">
-              <NAvatar round :size="120" :src="accountForm.avatarUrl" class="profile-avatar" />
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger as-child>
+                        <Button variant="outline" size="icon" type="button"
+                          class="absolute bottom-0 right-0 size-8 rounded-full shadow-md" @click="handleRandomAvatar">
+                          <RefreshCw class="size-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {{ t("settings.profile.fields.randomizeAvatar") }}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </FormField>
 
-              <NTooltip trigger="hover">
-                <template #trigger>
-                  <NButton circle secondary class="random-avatar-btn" size="small" @click="handleRandomAvatar">
-                    <template #icon>
-                      <RefreshCw class="w-4 h-4" />
-                    </template>
-                  </NButton>
-                </template>
-                {{ t("settings.profile.fields.randomizeAvatar") }}
-              </NTooltip>
+              <Button variant="outline" type="button" @click="handleUploadAvatar" :disabled="accountSaving">
+                <Upload class="size-4 mr-2" />
+                {{ t("settings.profile.fields.uploadAvatar") || "Upload Photo" }}
+              </Button>
+
+              <input type="file" ref="fileInputRef" class="hidden" accept="image/*" @change="onFileChange" />
             </div>
 
-            <NButton secondary @click="handleUploadAvatar" class="upload-btn">
-              <template #icon>
-                <Upload class="w-4 h-4" />
-              </template>
-              {{ t("settings.profile.fields.uploadAvatar") || "Upload Photo" }}
-            </NButton>
+            <!-- Right Column: Form Fields -->
+            <div class="grow max-w-md space-y-4">
+              <FormField v-slot="{ componentField }" name="username">
+                <FormItem>
+                  <FormLabel>{{ t("settings.profile.fields.username") }}</FormLabel>
+                  <FormControl>
+                    <Input v-bind="componentField" :disabled="accountSaving" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
 
-            <input type="file" ref="fileInputRef" style="display: none" accept="image/*" @change="onFileChange" />
+              <FormField v-slot="{ componentField }" name="email">
+                <FormItem>
+                  <FormLabel>{{ t("settings.profile.fields.email") }}</FormLabel>
+                  <FormControl>
+                    <Input v-bind="componentField" :disabled="accountSaving" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+
+              <div class="flex justify-end pt-2">
+                <Button type="submit" :disabled="accountSaving">
+                  <span v-if="accountSaving">Saving...</span>
+                  <span v-else>{{ t("common.save") }}</span>
+                </Button>
+              </div>
+            </div>
           </div>
+        </form>
 
-          <!-- Right Column: Form Fields -->
-          <div class="form-column">
-            <NFormItem :label="t('settings.profile.fields.username')">
-              <NInput v-model:value="accountForm.username" />
-            </NFormItem>
+        <Separator class="my-6" />
 
-            <NFormItem :label="t('settings.profile.fields.email')">
-              <NInput v-model:value="accountForm.email" />
-            </NFormItem>
+        <!-- Password Form -->
+        <h3 class="text-lg font-semibold mb-4">{{ t("settings.profile.password.title") }}</h3>
+        <form @submit="onPasswordSubmit">
+          <div class="max-w-md space-y-4">
+            <FormField v-slot="{ componentField }" name="oldPassword">
+              <FormItem>
+                <FormLabel>{{ t("settings.profile.password.current") }}</FormLabel>
+                <FormControl>
+                  <Input type="password" v-bind="componentField" :disabled="accountSaving" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
 
-            <NSpace justify="end" style="margin-top: 12px">
-              <NButton type="primary" :loading="accountSaving" @click="handleUpdateProfile">
-                {{ t("common.save") }}
-              </NButton>
-            </NSpace>
+            <FormField v-slot="{ componentField }" name="newPassword">
+              <FormItem>
+                <FormLabel>{{ t("settings.profile.password.new") }}</FormLabel>
+                <FormControl>
+                  <Input type="password" v-bind="componentField" :disabled="accountSaving" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+
+            <FormField v-slot="{ componentField }" name="confirmPassword">
+              <FormItem>
+                <FormLabel>{{ t("settings.profile.password.confirm") }}</FormLabel>
+                <FormControl>
+                  <Input type="password" v-bind="componentField" :disabled="accountSaving" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+
+            <div class="flex justify-end pt-2">
+              <Button type="submit" variant="destructive" :disabled="accountSaving">
+                {{ t("settings.profile.password.changeButton") }}
+              </Button>
+            </div>
           </div>
-        </div>
-
-        <NDivider />
-
-        <h3>{{ t("settings.profile.password.title") }}</h3>
-        <NFormItem :label="t('settings.profile.password.current')">
-          <NInput type="password" show-password-on="click" v-model:value="passwordForm.oldPassword" />
-        </NFormItem>
-        <NFormItem :label="t('settings.profile.password.new')">
-          <NInput type="password" show-password-on="click" v-model:value="passwordForm.newPassword" />
-        </NFormItem>
-        <NFormItem :label="t('settings.profile.password.confirm')">
-          <NInput type="password" show-password-on="click" v-model:value="passwordForm.confirmPassword" />
-        </NFormItem>
-
-        <NSpace justify="end">
-          <NButton type="warning" :loading="accountSaving" @click="handleChangePassword">
-            {{ t("settings.profile.password.changeButton") }}
-          </NButton>
-        </NSpace>
-      </NForm>
-    </NCard>
+        </form>
+      </CardContent>
+    </Card>
   </div>
 </template>
 
 <style scoped>
-.profile-settings {
-  width: 100%;
-}
-
-.account-layout {
-  display: flex;
-  gap: 60px;
-  /* Increased gap for better separation */
-  align-items: flex-start;
-  margin-bottom: 24px;
-}
-
-.avatar-column {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  min-width: 160px;
-  padding-top: 8px;
-}
-
-.avatar-wrapper {
-  position: relative;
-  display: inline-block;
-}
-
-.random-avatar-btn {
-  position: absolute;
-  bottom: 0px;
-  right: 0px;
-  background-color: var(--n-color);
-  /* Match theme background or white */
-  border: 1px solid var(--n-border-color);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-}
-
-.form-column {
-  flex-grow: 1;
-  max-width: 480px;
-  /* Restrict width of the form inputs */
-}
-
-@media (max-width: 600px) {
-  .account-layout {
-    flex-direction: column;
-    align-items: center;
-    gap: 32px;
-  }
-
-  .form-column {
-    width: 100%;
-    max-width: 100%;
-  }
-}
+/* No scoped styles needed with Tailwind */
 </style>

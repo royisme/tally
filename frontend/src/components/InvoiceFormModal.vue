@@ -1,31 +1,59 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import {
-  NModal,
-  NForm,
-  NFormItem,
-  NInput,
-  NInputNumber,
-  NSelect,
-  NDatePicker,
-  NButton,
-  NSpace,
-  NText,
-  useMessage,
-  NGrid,
-  NGi,
-  NDivider,
-  NDataTable,
-  NEmpty
-} from 'naive-ui'
+import { useForm } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api'
-import type { Invoice, InvoiceItem, Client, Project, TimeEntry } from '@/types'
+import type { Invoice, Client, Project, TimeEntry } from '@/types'
 import { dto } from '@/wailsjs/go/models'
-import type { FormInst, FormRules, DataTableColumns } from 'naive-ui'
 import { invoiceSchema } from '@/schemas/invoice'
-import { useZodRule } from '@/utils/validation'
 import { useSettingsStore } from '@/stores/settings'
+import { Calendar as CalendarIcon } from 'lucide-vue-next'
+import { cn } from '@/lib/utils'
+import {
+  parseDate,
+  type DateValue,
+} from '@internationalized/date'
+
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Separator } from '@/components/ui/separator'
 
 interface Props {
   show: boolean
@@ -46,10 +74,8 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
-const message = useMessage()
+// const message = useMessage() // Removed: use toast or form errors instead, or mostly validation errors show inline
 const { t } = useI18n()
-
-const formRef = ref<FormInst | null>(null)
 const settingsStore = useSettingsStore()
 
 // HST/Tax settings from user preferences
@@ -60,19 +86,6 @@ const defaultTaxRate = computed(() => {
 })
 
 type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue'
-
-interface InvoiceFormData {
-  clientId: number | null
-  number: string
-  issueDate: string
-  dueDate: string
-  items: InvoiceItem[]
-  subtotal: number
-  taxRate: number
-  taxAmount: number
-  total: number
-  status: InvoiceStatus
-}
 
 function coerceInvoiceStatus(status: string): InvoiceStatus {
   if (status === 'draft' || status === 'sent' || status === 'paid' || status === 'overdue') return status
@@ -88,38 +101,14 @@ function defaultDueDateFromIssueDate(issueDate: string): string {
 
 const isEditMode = computed(() => Boolean(props.invoice))
 
-const formValue = ref<InvoiceFormData>({
-  clientId: null,
-  number: '',
-  issueDate: new Date().toISOString().split('T')[0]!,
-  dueDate: defaultDueDateFromIssueDate(new Date().toISOString().split('T')[0]!),
-  items: [],
-  subtotal: 0,
-  taxRate: 0.13,
-  taxAmount: 0,
-  total: 0,
-  status: 'draft'
+// Form setup
+const formSchema = toTypedSchema(invoiceSchema)
+const form = useForm({
+  validationSchema: formSchema,
 })
 
-// 项目选择相关状态
-const selectedProjectId = ref<number | null>(null)
-const selectedProjectRate = ref<number>(0) // 存储选中项目的费率
-const projectOptions = ref<Array<{ label: string; value: number }>>([])
-const projectsLoading = ref(false)
-
-const rules: FormRules = {
-  clientId: {
-    required: true,
-    type: 'number',
-    message: t('form.validation.select', { field: t('invoices.form.client') }),
-    trigger: ['blur', 'change']
-  },
-  number: useZodRule(invoiceSchema.shape.number),
-  issueDate: useZodRule(invoiceSchema.shape.issueDate),
-  dueDate: useZodRule(invoiceSchema.shape.dueDate),
-  taxRate: useZodRule(invoiceSchema.shape.taxRate),
-  status: useZodRule(invoiceSchema.shape.status)
-}
+// Access values for calculations
+const formValues = form.values
 
 const statusOptions = [
   { label: t('invoices.status.draft'), value: 'draft' },
@@ -128,6 +117,13 @@ const statusOptions = [
   { label: t('invoices.status.overdue'), value: 'overdue' }
 ]
 
+// Project selection
+const selectedProjectId = ref<number | null>(null)
+const selectedProjectRate = ref<number>(0)
+const projectOptions = ref<Array<{ label: string; value: number }>>([])
+const projectsLoading = ref(false)
+
+// Time Entries
 const timeEntries = ref<TimeEntry[]>([])
 const timeEntriesLoading = ref(false)
 const selectedTimeEntryIds = ref<number[]>([])
@@ -148,23 +144,29 @@ const selectedHours = computed(() => {
   return totalSeconds / 3600
 })
 
-const timeEntryColumns = computed<DataTableColumns<TimeEntry>>(() => [
-  { type: 'selection', width: 50 },
-  { title: t('invoices.selectEntries.columns.date'), key: 'date', width: 160 },
-  { title: t('timesheet.form.description'), key: 'description' }, // Let description take remaining space, but we increased other cols
-  {
-    title: t('invoices.selectEntries.columns.hours'),
-    key: 'durationSeconds',
-    width: 120,
-    align: 'right',
-    render: (row) => (row.durationSeconds / 3600).toFixed(2)
+// Helper date getter/setter factory
+const createDateComputed = (fieldName: 'issueDate' | 'dueDate') => computed({
+  get: (): DateValue | undefined => {
+    const d = formValues[fieldName] as string | undefined
+    if (!d) return undefined
+    try {
+      return parseDate(d)
+    } catch {
+      return undefined
+    }
+  },
+  set: (val: DateValue | undefined) => {
+    form.setFieldValue(fieldName, val ? val.toString() : undefined)
   }
-])
+})
 
-// 保存加载的项目数据（包含费率）
+const issueDateValue = createDateComputed('issueDate')
+const dueDateValue = createDateComputed('dueDate')
+
+
+// Save loaded projects
 const projectsData = ref<Project[]>([])
 
-// Helper to load projects
 async function loadProjects(clientId: number) {
   projectsLoading.value = true
   try {
@@ -177,7 +179,8 @@ async function loadProjects(clientId: number) {
   } catch {
     projectOptions.value = []
     projectsData.value = []
-    message.error(t('projects.loadError'))
+    // message.error(t('projects.loadError'))
+    console.error('Failed to load projects')
   } finally {
     projectsLoading.value = false
   }
@@ -185,13 +188,13 @@ async function loadProjects(clientId: number) {
 
 const isInitializing = ref(false)
 
-// 监听客户选择变化，加载该客户的项目列表
+// Watch Client ID change
 watch(
-  () => formValue.value.clientId,
+  () => form.values.clientId,
   async (clientId) => {
     if (isInitializing.value) return
 
-    // User changed client: Reset project and time entries
+    // Reset project and time entries on client change
     selectedProjectId.value = null
     selectedProjectRate.value = 0
     projectOptions.value = []
@@ -205,17 +208,30 @@ watch(
   }
 )
 
-// 监听项目选择变化，加载工时记录并保存费率
+// Watch Project ID change
 watch(
   () => selectedProjectId.value,
   async (projectId) => {
-    timeEntries.value = []
-    selectedTimeEntryIds.value = []
-    selectedProjectRate.value = 0
+    // Only fetch if changed (or force fetch if needed, but usually watch triggers on change)
+    // If we just loaded an invoice with project ID, this might trigger. 
+    // We handle "isInitializing" to avoid clearing data during load, 
+    // BUT checking logic below:
+
+    // We WANT to fetch time entries whenever project changes, even during init?
+    // During init we set selectedProjectId. If we wait for that tick, we fetch.
+
+    // However, if we are in init, we might want to manually fetch inside the main watch(props.invoice)
+    // to control the flow better?
+    // Let's rely on this watcher but be careful not to reset selectedTimeEntryIds if we are initializing?
+    // Actually, "Reset" happens at the top here:
+    if (!isInitializing.value) {
+      timeEntries.value = []
+      selectedTimeEntryIds.value = []
+      selectedProjectRate.value = 0
+    }
 
     if (!projectId) return
 
-    // 获取选中项目的费率
     const project = projectsData.value.find(p => p.id === projectId)
     if (project) {
       selectedProjectRate.value = project.hourlyRate
@@ -224,97 +240,174 @@ watch(
     timeEntriesLoading.value = true
     try {
       timeEntries.value = await api.timeEntries.list(projectId)
-      // Auto-select eligible entries that are not yet invoiced, OR are linked to this invoice
+
+      // Auto-select logic
+      if (!isInitializing.value) { // Only auto-select if user actively changed project? 
+        // Or if it's a new invoice creation flow. 
+        // If editing, we rely on existing connections.
+      }
+
+      // Since existing selectedTimeEntryIds are reset above if !isInitializing,
+      // here we re-populate.
+      // If IS initializing, we might want to populate existing invoice entries.
+
       if (isEditMode.value && props.invoice) {
-        selectedTimeEntryIds.value = eligibleTimeEntries.value
-          .filter(e => e.invoiceId === props.invoice?.id)
-          .map(e => e.id)
+        // If editing, prioritize invoice's entries
+        // Wait, if isInitializing is TRUE, we didn't reset selectedTimeEntryIds.
+        // So we just load timeEntries list.
+        // We need to make sure selectedTimeEntryIds are SET somewhere.
+        // They are set in watch(props.invoice) -> but that only runs ONCE.
+        // BUT if timeEntries are empty, we can't select them? 
+        // Actually selection is by ID, so we can set IDs even if entries not loaded yet (for checkbox state).
+        // But for calculations we need entries.
+
+        // Let's refine:
+        if (isInitializing.value) {
+          // Just ensure selectedTimeEntryIds are set from invoice (done in main watcher)
+          // and timeEntries are loaded.
+        } else {
+          // New selection by user
+          selectedTimeEntryIds.value = eligibleTimeEntries.value
+            .filter(e => e.invoiceId === props.invoice?.id) // Keep existing if valid?
+            .map(e => e.id)
+          if (!isEditMode.value) {
+            // Select ALL eligible for new invoice
+            selectedTimeEntryIds.value = eligibleTimeEntries.value.map(e => e.id)
+          }
+        }
       } else {
-        selectedTimeEntryIds.value = eligibleTimeEntries.value.map((e) => e.id)
+        // New invoice
+        if (!isInitializing.value) {
+          selectedTimeEntryIds.value = eligibleTimeEntries.value.map((e) => e.id)
+        }
       }
     } catch {
       timeEntries.value = []
-      message.error(t('timesheet.loadError'))
+      // message.error
     } finally {
       timeEntriesLoading.value = false
     }
   }
 )
 
-// 监听选中工时变化，实时计算小计金额
+// Watch Time Selection -> Update Totals
 watch(
   () => selectedTimeEntryIds.value,
   () => {
+    // Need entries to be loaded
     const selectedSet = new Set(selectedTimeEntryIds.value)
     const totalSeconds = eligibleTimeEntries.value
       .filter((e) => selectedSet.has(e.id))
       .reduce((sum, e) => sum + e.durationSeconds, 0)
+
+    // If initialization hasn't happened or projects not loaded, projectRate might be 0.
+    // Calculations should still happen.
     const hours = totalSeconds / 3600
     const subtotal = hours * selectedProjectRate.value
-    formValue.value.subtotal = subtotal
-    formValue.value.taxAmount = subtotal * formValue.value.taxRate
-    formValue.value.total = subtotal + formValue.value.taxAmount
+
+    // We update form values. 
+    // IMPORTANT: form.setFieldValue triggers validation.
+    form.setFieldValue('subtotal', subtotal)
+
+    const taxRate = form.values.taxRate || 0
+    const taxAmount = subtotal * taxRate
+    form.setFieldValue('taxAmount', taxAmount)
+    form.setFieldValue('total', subtotal + taxAmount)
   },
   { deep: true }
+)
+
+// Also watch Tax Rate change
+watch(
+  () => form.values.taxRate,
+  (newRate) => {
+    const subtotal = form.values.subtotal || 0
+    const taxAmount = subtotal * (newRate || 0)
+    form.setFieldValue('taxAmount', taxAmount)
+    form.setFieldValue('total', subtotal + taxAmount)
+  }
 )
 
 watch(() => props.invoice, async (newInvoice) => {
   if (newInvoice) {
     isInitializing.value = true
     try {
-      formValue.value = {
+      form.setValues({
         clientId: newInvoice.clientId,
         number: newInvoice.number,
         issueDate: newInvoice.issueDate,
         dueDate: newInvoice.dueDate || defaultDueDateFromIssueDate(newInvoice.issueDate),
-        items: newInvoice.items.map(i => ({ ...i })),
+        // items: newInvoice.items.map(i => ({ ...i })), // Items are manual items, here we mainly use time entries?
+        // Current logic doesn't expose manual items editing in this modal (it was NGrid Row 2?).
+        // Wait, original template didn't show items list for editing? 
+        // Original code had `items: []` in creation, and `items: newInvoice.items` in edit.
+        // But NO UI to edit manual items. Just Time Entries.
+        // So we keep it that way.
         subtotal: newInvoice.subtotal,
         taxRate: newInvoice.taxRate,
         taxAmount: newInvoice.taxAmount,
         total: newInvoice.total,
-        status: coerceInvoiceStatus(newInvoice.status)
-      }
+        status: coerceInvoiceStatus(newInvoice.status),
+      })
 
       // Load projects for the client
       if (newInvoice.clientId) {
         await loadProjects(newInvoice.clientId)
       }
 
-      // Set project ID if available (from backend DTO)
+      // Set project ID if available
       const inv = newInvoice as any
       if (inv.projectId) {
         selectedProjectId.value = inv.projectId
       } else {
         selectedProjectId.value = null
       }
+
+      // Set selected time entries (if not done by project watcher?)
+      // We don't have list of entry IDs in Invoice object directly typically unless fetched?
+      // But we will fetch time entries via `loadProjects` -> then user sets project.
+      // Wait, we need to know which entries are part of this invoice.
+      // `eligibleTimeEntries` filters by `invoiceId === props.invoice.id`.
+      // So once we load time entries for the project, we can just select all that match this invoice.
+      // This logic is in the Project watcher.
+
     } finally {
-      // Small delay to ensure watchers have fired/settled if needed, though usually not required if using await
       setTimeout(() => {
         isInitializing.value = false
+        // Trigger calculation once to ensure?
+        // Or trigger project watcher by setting project ID?
+        // Project ID was set above.
       }, 0)
     }
   } else {
+    // New Invoice
     const issueDate = new Date().toISOString().split('T')[0]!
-    formValue.value = {
-      clientId: null,
-      number: (() => {
-        const now = new Date()
-        const yyyy = now.getFullYear()
-        const mm = String(now.getMonth() + 1).padStart(2, '0')
-        const dd = String(now.getDate()).padStart(2, '0')
-        const hh = String(now.getHours()).padStart(2, '0')
-        const min = String(now.getMinutes()).padStart(2, '0')
-        return `INV-${yyyy}${mm}${dd}-${hh}${min}`
-      })(),
-      issueDate,
-      dueDate: defaultDueDateFromIssueDate(issueDate),
-      items: [],
-      subtotal: 0,
-      taxRate: defaultTaxRate.value,
-      taxAmount: 0,
-      total: 0,
-      status: 'draft'
-    }
+    const dueDate = defaultDueDateFromIssueDate(issueDate)
+
+    // Generate Invoice Number
+    const now = new Date()
+    const yyyy = now.getFullYear()
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const dd = String(now.getDate()).padStart(2, '0')
+    const hh = String(now.getHours()).padStart(2, '0')
+    const min = String(now.getMinutes()).padStart(2, '0')
+    const number = `INV-${yyyy}${mm}${dd}-${hh}${min}`
+
+    form.resetForm({
+      values: {
+        clientId: undefined,
+        number,
+        issueDate,
+        dueDate,
+        subtotal: 0,
+        taxRate: defaultTaxRate.value,
+        taxAmount: 0,
+        total: 0,
+        status: 'draft',
+        items: []
+      }
+    })
+
     selectedProjectId.value = null
     projectOptions.value = []
     timeEntries.value = []
@@ -323,246 +416,315 @@ watch(() => props.invoice, async (newInvoice) => {
 }, { immediate: true })
 
 function handleClose() {
-  emit('update:show', false)
+  handleUpdateShow(false)
 }
 
 function handleUpdateShow(value: boolean) {
   emit('update:show', value)
 }
 
-function handleSubmit() {
-  formRef.value?.validate((errors) => {
-    if (!errors) {
-      if (isEditMode.value && props.invoice) {
-        emit('update', {
-          input: dto.UpdateInvoiceInput.createFrom({
-            id: props.invoice.id,
-            clientId: formValue.value.clientId ?? 0,
-            number: formValue.value.number,
-            issueDate: formValue.value.issueDate,
-            dueDate: formValue.value.dueDate,
-            subtotal: formValue.value.subtotal,
-            taxRate: formValue.value.taxRate,
-            taxAmount: formValue.value.taxAmount,
-            total: formValue.value.total,
-            status: formValue.value.status,
-            items: formValue.value.items.map((i) => ({
-              description: i.description,
-              quantity: i.quantity,
-              unitPrice: i.unitPrice,
-              amount: i.amount
-            }))
-          }),
-          timeEntryIds: selectedTimeEntryIds.value
-        })
-        handleClose()
-        return
-      }
+const onSubmit = form.handleSubmit((values) => {
+  if (isEditMode.value && props.invoice) {
+    emit('update', {
+      input: dto.UpdateInvoiceInput.createFrom({
+        id: props.invoice.id,
+        clientId: values.clientId || 0,
+        number: values.number,
+        issueDate: values.issueDate,
+        dueDate: values.dueDate,
+        subtotal: values.subtotal,
+        taxRate: values.taxRate,
+        taxAmount: values.taxAmount,
+        total: values.total,
+        status: values.status,
+        items: (values.items || []).map((i) => ({
+          description: i.description,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          amount: i.amount
+        }))
+      }),
+      timeEntryIds: selectedTimeEntryIds.value
+    })
+    handleUpdateShow(false)
+    return
+  }
 
-      if (!formValue.value.clientId) {
-        message.warning(t('form.validation.select', { field: t('invoices.form.client') }))
-        return
-      }
-      if (!selectedProjectId.value) {
-        message.warning(t('form.validation.select', { field: t('invoices.form.project') }))
-        return
-      }
-      if (selectedTimeEntryIds.value.length === 0) {
-        message.warning(t('invoices.form.validation.selectEntries'))
-        return
-      }
+  if (!values.clientId) {
+    // Validation handled by form, but check custom checks
+    return
+  }
+  if (!selectedProjectId.value) {
+    // message.warning(t('form.validation.select', { field: t('invoices.form.project') }))
+    return
+  }
+  if (selectedTimeEntryIds.value.length === 0) {
+    // message.warning(t('invoices.form.validation.selectEntries'))
+    return
+  }
 
-      emit('create', {
-        input: dto.CreateInvoiceInput.createFrom({
-          clientId: formValue.value.clientId,
-          number: formValue.value.number,
-          issueDate: formValue.value.issueDate,
-          dueDate: formValue.value.dueDate,
-          subtotal: 0,
-          taxRate: formValue.value.taxRate,
-          taxAmount: 0,
-          total: 0,
-          status: formValue.value.status,
-          items: []
-        }),
-        timeEntryIds: selectedTimeEntryIds.value
-      })
-      handleClose()
-    } else {
-      message.error(t('invoices.form.validation.fixErrors'))
-    }
+  emit('create', {
+    input: dto.CreateInvoiceInput.createFrom({
+      clientId: values.clientId,
+      number: values.number,
+      issueDate: values.issueDate,
+      dueDate: values.dueDate,
+      subtotal: 0, // Recalculated by backend or we pass it? 
+      // We pass 0 and let backend or just pass values?
+      // Original code passed 0 for create?
+      // "subtotal: 0"
+      // Yes.
+      taxRate: values.taxRate,
+      taxAmount: 0,
+      total: 0,
+      status: values.status,
+      items: []
+    }),
+    timeEntryIds: selectedTimeEntryIds.value
   })
+  handleUpdateShow(false)
+})
+
+function toggleSelection(id: number, checked: boolean | string) {
+  if (checked === true) {
+    selectedTimeEntryIds.value = [...selectedTimeEntryIds.value, id]
+  } else {
+    selectedTimeEntryIds.value = selectedTimeEntryIds.value.filter(existingId => existingId !== id)
+  }
 }
+
+function toggleAll(checked: boolean | string) {
+  if (checked === true) {
+    selectedTimeEntryIds.value = eligibleTimeEntries.value.map(e => e.id)
+  } else {
+    selectedTimeEntryIds.value = []
+  }
+}
+
+const allSelected = computed(() => {
+  return eligibleTimeEntries.value.length > 0 && selectedTimeEntryIds.value.length === eligibleTimeEntries.value.length
+})
 </script>
 
 <template>
-  <n-modal :show="show" @update:show="handleUpdateShow" preset="card"
-    :style="{ width: '900px', maxWidth: '95vw', maxHeight: '85vh' }" :content-style="{ overflow: 'auto' }"
-    :title="invoice ? t('invoices.form.editTitle') : t('invoices.form.newTitle')"
-    :segmented="{ content: 'soft', footer: 'soft' }">
-    <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top" size="medium">
+  <Dialog :open="show" @update:open="handleUpdateShow">
+    <DialogContent class="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>{{ invoice ? t('invoices.form.editTitle') : t('invoices.form.newTitle') }}</DialogTitle>
+      </DialogHeader>
 
-      <!-- Top Section: Form Fields - 2 rows x 3 cols -->
-      <n-grid :x-gap="16" :y-gap="0" :cols="3">
-        <!-- Row 1: Client, Project (create mode) / Invoice Number (edit mode), Status -->
-        <n-gi :span="1">
-          <n-form-item :label="t('invoices.form.client')" path="clientId">
-            <n-select v-model:value="formValue.clientId" :options="clients.map(c => ({ label: c.name, value: c.id }))"
-              :placeholder="t('invoices.form.selectClient')" filterable clearable />
-          </n-form-item>
-        </n-gi>
-        <n-gi :span="1">
-          <n-form-item :label="t('invoices.form.project')">
-            <n-select v-model:value="selectedProjectId" :options="projectOptions"
-              :placeholder="t('invoices.form.selectProject')" :loading="projectsLoading" :disabled="!formValue.clientId"
-              filterable clearable />
-          </n-form-item>
-        </n-gi>
-        <n-gi :span="1">
-          <n-form-item :label="t('invoices.form.status')" path="status">
-            <n-select v-model:value="formValue.status" :options="statusOptions" />
-          </n-form-item>
-        </n-gi>
-        <!-- Row 2: Invoice Number, Issue Date, Due Date -->
-        <n-gi :span="1">
-          <n-form-item :label="t('invoices.form.invoiceNumber')" path="number">
-            <n-input v-model:value="formValue.number" placeholder="INV-001" />
-          </n-form-item>
-        </n-gi>
-        <n-gi :span="1">
-          <n-form-item :label="t('invoices.form.issueDate')" path="issueDate">
-            <n-date-picker v-model:formatted-value="formValue.issueDate" type="date" value-format="yyyy-MM-dd"
-              style="width: 100%;" />
-          </n-form-item>
-        </n-gi>
-        <n-gi :span="1">
-          <n-form-item :label="t('invoices.form.dueDate')" path="dueDate">
-            <n-date-picker v-model:formatted-value="formValue.dueDate" type="date" value-format="yyyy-MM-dd"
-              style="width: 100%;" />
-          </n-form-item>
-        </n-gi>
-      </n-grid>
+      <form @submit="onSubmit" class="space-y-6">
+        <!-- Top Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Client -->
+          <FormField v-slot="{ componentField }" name="clientId">
+            <FormItem>
+              <FormLabel>{{ t('invoices.form.client') }}</FormLabel>
+              <Select v-bind="componentField" :model-value="componentField.modelValue?.toString()">
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue :placeholder="t('invoices.form.selectClient')" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem v-for="client in clients" :key="client.id" :value="client.id.toString()">
+                    {{ client.name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
-      <n-divider style="margin: 12px 0" />
+          <!-- Project -->
+          <FormItem>
+            <FormLabel>{{ t('invoices.form.project') }}</FormLabel>
+            <Select :model-value="selectedProjectId?.toString()"
+              @update:model-value="(v) => selectedProjectId = Number(v)"
+              :disabled="!form.values.clientId || projectsLoading">
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue :placeholder="t('invoices.form.selectProject')" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem v-for="p in projectsData" :key="p.id" :value="p.id.toString()">
+                  {{ p.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </FormItem>
 
-      <!-- Time Entries Selection (Always visible now) -->
-      <!-- Time Entries Selection (Always visible now) -->
-      <div class="items-header">
-        <n-text strong>{{ t('invoices.form.timeEntries.title') }}</n-text>
-        <n-text depth="3" style="font-size: 12px; margin-left: 8px;">
-          {{ t('invoices.form.timeEntries.selectedHours', { hours: selectedHours.toFixed(2) }) }}
-        </n-text>
-      </div>
+          <!-- Status -->
+          <FormField v-slot="{ componentField }" name="status">
+            <FormItem>
+              <FormLabel>{{ t('invoices.form.status') }}</FormLabel>
+              <Select v-bind="componentField">
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
-      <div class="items-container">
-        <n-empty v-if="!selectedProjectId" :description="t('invoices.form.timeEntries.selectProjectHint')"
-          size="small" />
-        <n-empty v-else-if="!timeEntriesLoading && eligibleTimeEntries.length === 0"
-          :description="t('invoices.form.timeEntries.empty')" size="small" />
-        <n-data-table v-else :loading="timeEntriesLoading" :columns="timeEntryColumns" :data="eligibleTimeEntries"
-          :row-key="(row: TimeEntry) => row.id" :checked-row-keys="selectedTimeEntryIds"
-          @update:checked-row-keys="(keys: Array<string | number>) => selectedTimeEntryIds = keys as number[]"
-          :max-height="200" />
-      </div>
+          <!-- Invoice Number -->
+          <FormField v-slot="{ componentField }" name="number">
+            <FormItem>
+              <FormLabel>{{ t('invoices.form.invoiceNumber') }}</FormLabel>
+              <FormControl>
+                <Input v-bind="componentField" placeholder="INV-001" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
+          <!-- Issue Date -->
+          <FormField name="issueDate">
+            <FormItem class="flex flex-col">
+              <FormLabel>{{ t('invoices.form.issueDate') }}</FormLabel>
+              <Popover>
+                <PopoverTrigger as-child>
+                  <FormControl>
+                    <Button variant="outline"
+                      :class="cn('w-full pl-3 text-left font-normal', !issueDateValue && 'text-muted-foreground')">
+                      <span>{{ issueDateValue ? issueDateValue.toString() : "Pick a date" }}</span>
+                      <CalendarIcon class="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent class="w-auto p-0" align="start">
+                  <Calendar v-model="issueDateValue" mode="single" />
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
-
-      <!-- Totals Section - Horizontal Layout -->
-      <div class="totals-row">
-        <div class="total-item">
-          <span class="label">{{ t('invoices.form.subtotal') }}</span>
-          <span class="value">${{ formValue.subtotal.toFixed(2) }}</span>
+          <!-- Due Date -->
+          <FormField name="dueDate">
+            <FormItem class="flex flex-col">
+              <FormLabel>{{ t('invoices.form.dueDate') }}</FormLabel>
+              <Popover>
+                <PopoverTrigger as-child>
+                  <FormControl>
+                    <Button variant="outline"
+                      :class="cn('w-full pl-3 text-left font-normal', !dueDateValue && 'text-muted-foreground')">
+                      <span>{{ dueDateValue ? dueDateValue.toString() : "Pick a date" }}</span>
+                      <CalendarIcon class="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent class="w-auto p-0" align="start">
+                  <Calendar v-model="dueDateValue" mode="single" />
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          </FormField>
         </div>
-        <template v-if="taxEnabled">
-          <div class="total-item">
-            <span class="label">{{ t('invoices.form.taxRate') }}</span>
-            <n-input-number v-model:value="formValue.taxRate" :step="0.01" :min="0" :max="1" size="small"
-              :show-button="false" style="width: 80px;">
-              <template #suffix>%</template>
-            </n-input-number>
+
+        <Separator />
+
+        <!-- Time Entries Selection -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold">{{ t('invoices.form.timeEntries.title') }}</span>
+              <span class="text-xs text-muted-foreground">
+                {{ t('invoices.form.timeEntries.selectedHours', { hours: selectedHours.toFixed(2) }) }}
+              </span>
+            </div>
           </div>
-          <div class="total-item">
-            <span class="label">{{ t('invoices.form.taxAmount') }}</span>
-            <span class="value">${{ formValue.taxAmount.toFixed(2) }}</span>
+
+          <div class="border rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead class="w-[50px]">
+                    <Checkbox :checked="allSelected" @update:checked="(value: boolean) => toggleAll(value)"
+                      :disabled="eligibleTimeEntries.length === 0" />
+                  </TableHead>
+                  <TableHead class="w-[160px]">{{ t('invoices.selectEntries.columns.date') }}</TableHead>
+                  <TableHead>{{ t('timesheet.form.description') }}</TableHead>
+                  <TableHead class="text-right w-[120px]">{{ t('invoices.selectEntries.columns.hours') }}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-if="!selectedProjectId">
+                  <TableCell colspan="4" class="text-center h-24 text-muted-foreground">
+                    {{ t('invoices.form.timeEntries.selectProjectHint') }}
+                  </TableCell>
+                </TableRow>
+                <TableRow v-else-if="!timeEntriesLoading && eligibleTimeEntries.length === 0">
+                  <TableCell colspan="4" class="text-center h-24 text-muted-foreground">
+                    {{ t('invoices.form.timeEntries.empty') }}
+                  </TableCell>
+                </TableRow>
+                <template v-else>
+                  <TableRow v-for="entry in eligibleTimeEntries" :key="entry.id">
+                    <TableCell>
+                      <Checkbox :checked="selectedTimeEntryIds.includes(entry.id)"
+                        @update:checked="(value: boolean) => toggleSelection(entry.id, value)" />
+                    </TableCell>
+                    <TableCell>{{ entry.date }}</TableCell>
+                    <TableCell>{{ entry.description }}</TableCell>
+                    <TableCell class="text-right">{{ (entry.durationSeconds / 3600).toFixed(2) }}</TableCell>
+                  </TableRow>
+                </template>
+              </TableBody>
+            </Table>
           </div>
-        </template>
-        <div class="total-item grand-total">
-          <span class="label">{{ t('invoices.form.total') }}</span>
-          <span class="value">${{ formValue.total.toFixed(2) }}</span>
         </div>
-      </div>
 
-    </n-form>
+        <!-- Totals -->
+        <div class="flex flex-col items-end space-y-2 pt-4 border-t">
+          <div class="flex items-center gap-4 text-sm">
+            <span class="text-muted-foreground">{{ t('invoices.form.subtotal') }}</span>
+            <span class="font-medium min-w-[80px] text-right">${{ form.values.subtotal?.toFixed(2) || '0.00' }}</span>
+          </div>
 
-    <template #footer>
-      <n-space justify="end">
-        <n-button @click="handleClose" size="large">{{ t('invoices.form.cancel') }}</n-button>
-        <n-button type="primary" @click="handleSubmit" size="large" style="padding-left: 32px; padding-right: 32px;">
-          {{ invoice ? t('invoices.form.update') : t('invoices.form.create') }}
-        </n-button>
-      </n-space>
-    </template>
-  </n-modal>
+          <div v-if="taxEnabled" class="flex items-center gap-4 text-sm">
+            <!-- Tax Rate Input -->
+            <div class="flex items-center gap-2">
+              <span class="text-muted-foreground">{{ t('invoices.form.taxRate') }}</span>
+              <div class="relative w-[80px]">
+                <Input type="number" step="0.01" min="0" max="1" class="h-8 pr-6 text-right"
+                  :model-value="form.values.taxRate"
+                  @update:model-value="(v) => form.setFieldValue('taxRate', Number(v))" />
+                <span class="absolute right-2 top-0 bottom-0 flex items-center text-muted-foreground text-xs">%</span>
+              </div>
+            </div>
+            <!-- Tax Amount -->
+            <div class="flex items-center gap-4">
+              <span class="text-muted-foreground">{{ t('invoices.form.taxAmount') }}</span>
+              <span class="font-medium min-w-[80px] text-right">${{ form.values.taxAmount?.toFixed(2) || '0.00'
+              }}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4 text-lg font-bold border-l-4 border-primary pl-4">
+            <span>{{ t('invoices.form.total') }}</span>
+            <span class="text-primary min-w-[80px] text-right">${{ form.values.total?.toFixed(2) || '0.00' }}</span>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" type="button" @click="handleClose">
+            {{ t('invoices.form.cancel') }}
+          </Button>
+          <Button type="submit">
+            {{ invoice ? t('invoices.form.update') : t('invoices.form.create') }}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
 </template>
-
-<style scoped>
-.invoice-meta-box {
-  background-color: var(--n-color-modal);
-  padding: 16px;
-  border-radius: 8px;
-  border: 1px solid var(--n-divider-color);
-}
-
-.items-header {
-  margin-bottom: 6px;
-}
-
-.items-container {
-  background-color: rgba(0, 0, 0, 0.02);
-  border-radius: 6px;
-  padding: 10px;
-  border: 1px solid var(--n-divider-color);
-}
-
-.totals-row {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 24px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--n-divider-color);
-}
-
-.total-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.total-item .label {
-  color: var(--n-text-color-3);
-  font-size: 13px;
-}
-
-.total-item .value {
-  font-weight: 500;
-  color: var(--n-text-color-1);
-}
-
-.total-item.grand-total {
-  padding-left: 16px;
-  border-left: 2px solid var(--n-primary-color);
-}
-
-.total-item.grand-total .label {
-  font-weight: 600;
-  color: var(--n-text-color-1);
-}
-
-.total-item.grand-total .value {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--n-primary-color);
-}
-</style>

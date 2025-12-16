@@ -1,32 +1,54 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from "vue";
-import {
-  NForm,
-  NFormItem,
-  NSelect,
-  NSwitch,
-  NSpace,
-  NButton,
-  useMessage,
-  NCard,
-} from "naive-ui";
+import { useForm } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
 import { api } from "@/api";
 import { useI18n } from "vue-i18n";
-import type { FinanceAccount, FinanceSettings } from "@/types/finance";
+import type { FinanceAccount } from "@/types/finance";
+import { financeSettingsSchema } from "@/schemas/settings";
+
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from '@/components/ui/form'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { toast } from "vue-sonner";
 
 const { t } = useI18n();
-const message = useMessage();
-
-const formRef = ref<InstanceType<typeof NForm> | null>(null);
-const form = ref<FinanceSettings>({
-  defaultAccountId: undefined,
-  autoCategorize: true,
-  autoReconcile: false,
-  userId: 0,
-});
 
 const accounts = ref<FinanceAccount[]>([]);
 const saving = ref(false);
+
+const formSchema = toTypedSchema(financeSettingsSchema);
+
+const form = useForm({
+  validationSchema: formSchema,
+  initialValues: {
+    defaultAccountId: undefined,
+    autoCategorize: true,
+    autoReconcile: false,
+    userId: 0,
+  }
+});
 
 const accountOptions = computed(() =>
   accounts.value.map((a) => ({
@@ -40,77 +62,101 @@ onMounted(async () => {
     // Use API calls for testing
     accounts.value = await api.finance.accounts.list();
     const settings = await api.finance.settings.get();
-    form.value = settings;
+    form.setValues(settings);
   } catch (e) {
-    message.error(t("settings.finance.messages.loadError"));
+    toast.error(t("settings.finance.messages.loadError"));
   }
 });
 
-async function handleSave() {
+const onSubmit = form.handleSubmit(async (values) => {
   saving.value = true;
   try {
-    await api.finance.settings.update(form.value);
-    message.success(t("settings.finance.messages.saved"));
+    await api.finance.settings.update(values);
+    toast.success(t("settings.finance.messages.saved"));
   } catch (e) {
-    message.error(e instanceof Error ? e.message : t("settings.finance.messages.saveError"));
+    toast.error(e instanceof Error ? e.message : t("settings.finance.messages.saveError"));
   } finally {
     saving.value = false;
   }
-}
+});
 </script>
 
 <template>
-  <div class="finance-settings">
-    <NCard :title="t('settings.finance.title')" :bordered="false">
-      <NForm ref="formRef" label-placement="top">
-        <NFormItem :label="t('settings.finance.fields.defaultAccount')">
-          <NSelect
-            v-model:value="form.defaultAccountId"
-            :options="accountOptions"
-            clearable
-            :placeholder="t('settings.finance.placeholders.defaultAccount')"
-            :disabled="saving"
-          />
-        </NFormItem>
+  <div class="finance-settings space-y-6">
+    <Card>
+      <CardHeader>
+        <CardTitle>{{ t('settings.finance.title') }}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form @submit="onSubmit" class="space-y-6">
+          <!-- Default Account -->
+          <FormField v-slot="{ componentField }" name="defaultAccountId">
+            <FormItem>
+              <FormLabel>{{ t('settings.finance.fields.defaultAccount') }}</FormLabel>
+              <Select v-bind="componentField" :model-value="componentField.modelValue?.toString()">
+                <FormControl>
+                  <SelectTrigger :disabled="saving">
+                    <SelectValue :placeholder="t('settings.finance.placeholders.defaultAccount')" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem v-for="opt in accountOptions" :key="opt.value" :value="opt.value.toString()">
+                      {{ opt.label }}
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
-        <NFormItem :label="t('settings.finance.fields.autoCategorize')">
-          <NSwitch
-            v-model:value="form.autoCategorize"
-            :disabled="saving"
-          />
-          <div class="hint">
-            {{ t("settings.finance.hints.autoCategorize") }}
+          <!-- Auto Categorize -->
+          <FormField v-slot="{ value, handleChange }" name="autoCategorize">
+            <FormItem class="flex flex-row items-center justify-between rounded-lg border p-4">
+              <div class="space-y-0.5">
+                <FormLabel class="text-base">
+                  {{ t('settings.finance.fields.autoCategorize') }}
+                </FormLabel>
+                <FormDescription>
+                  {{ t("settings.finance.hints.autoCategorize") }}
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch :checked="value" @update:checked="handleChange" :disabled="saving" />
+              </FormControl>
+            </FormItem>
+          </FormField>
+
+          <!-- Auto Reconcile -->
+          <FormField v-slot="{ value, handleChange }" name="autoReconcile">
+            <FormItem class="flex flex-row items-center justify-between rounded-lg border p-4">
+              <div class="space-y-0.5">
+                <FormLabel class="text-base">
+                  {{ t('settings.finance.fields.autoReconcile') }}
+                </FormLabel>
+                <FormDescription>
+                  {{ t("settings.finance.hints.autoReconcile") }}
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch :checked="value" @update:checked="handleChange" :disabled="saving" />
+              </FormControl>
+            </FormItem>
+          </FormField>
+
+          <div class="flex justify-end">
+            <Button type="submit" :disabled="saving">
+              <span v-if="saving">Saving...</span>
+              <span v-else>{{ t("common.save") }}</span>
+            </Button>
           </div>
-        </NFormItem>
-
-        <NFormItem :label="t('settings.finance.fields.autoReconcile')">
-          <NSwitch
-            v-model:value="form.autoReconcile"
-            :disabled="saving"
-          />
-          <div class="hint">
-            {{ t("settings.finance.hints.autoReconcile") }}
-          </div>
-        </NFormItem>
-
-        <NSpace justify="end" style="margin-top: 24px">
-          <NButton type="primary" :loading="saving" @click="handleSave">
-            {{ t("common.save") }}
-          </NButton>
-        </NSpace>
-      </NForm>
-    </NCard>
+        </form>
+      </CardContent>
+    </Card>
   </div>
 </template>
 
 <style scoped>
-.finance-settings {
-  max-width: 800px;
-}
-
-.hint {
-  margin-left: 8px;
-  font-size: 12px;
-  color: #888;
-}
+/* No scoped styles needed */
 </style>

@@ -1,9 +1,48 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { NModal, NForm, NFormItem, NInput, NInputNumber, NSelect, NDatePicker, NTimePicker, NCheckbox, NButton, NSpace, useMessage } from 'naive-ui'
-import type { TimeEntry, Project } from '@/types'
-import type { FormInst } from 'naive-ui'
+import { useForm } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
 import { useI18n } from 'vue-i18n'
+import type { TimeEntry, Project } from '@/types'
+import { timeEntrySchema } from '@/schemas/timesheet'
+import { Calendar as CalendarIcon } from 'lucide-vue-next'
+import { cn } from '@/lib/utils'
+import {
+  parseDate,
+  type DateValue,
+} from '@internationalized/date'
+
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface Props {
   show: boolean
@@ -18,171 +57,261 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
-const message = useMessage()
 const { t } = useI18n()
 
-const formRef = ref<FormInst | null>(null)
-// Local form type that allows null for optional time fields (NTimePicker requires null, not empty string)
-interface TimeEntryFormData {
-  projectId: number
-  invoiceId: number
-  date: string
-  startTime: string | null
-  endTime: string | null
-  durationSeconds: number
-  description: string
-  billable: boolean
-  invoiced: boolean
-}
+// Extend schema if needed, or use as is
+const formSchema = toTypedSchema(timeEntrySchema)
 
-const formValue = ref<TimeEntryFormData>({
-  projectId: 0,
-  invoiceId: 0,
-  date: new Date().toISOString().split('T')[0] ?? '',
-  startTime: null,
-  endTime: null,
-  durationSeconds: 0,
-  description: '',
-  billable: true,
-  invoiced: false
+const form = useForm({
+  validationSchema: formSchema,
 })
 
-import { timeEntrySchema } from '@/schemas/timesheet'
-import { useZodRule } from '@/utils/validation'
+// Access values
+const formValues = form.values
 
-const rules = {
-  projectId: useZodRule(timeEntrySchema.shape.projectId),
-  date: useZodRule(timeEntrySchema.shape.date),
-  durationSeconds: useZodRule(timeEntrySchema.shape.durationSeconds),
-  description: useZodRule(timeEntrySchema.shape.description)
-}
-
-// Convert seconds to hours for input
+// Duration Hours Computed Helper
 const durationHours = computed({
-  get: () => formValue.value.durationSeconds / 3600,
-  set: (val: number) => { formValue.value.durationSeconds = Math.round(val * 3600) }
+  get: () => {
+    const secs = formValues.durationSeconds
+    return typeof secs === 'number' ? secs / 3600 : 0
+  },
+  set: (val: string | number) => {
+    const num = Number(val)
+    if (!isNaN(num)) {
+      form.setFieldValue('durationSeconds', Math.round(num * 3600))
+    }
+  }
 })
 
-// Watch for modal open to properly initialize form data
-// Watch for entry changes to populate form (handles external updates)
+// Helper date getter/setter
+const dateValue = computed({
+  get: (): DateValue | undefined => {
+    const d = formValues.date as string | undefined
+    if (!d) return undefined
+    try {
+      return parseDate(d)
+    } catch {
+      return undefined
+    }
+  },
+  set: (val: DateValue | undefined) => {
+    form.setFieldValue('date', val ? val.toString() : undefined)
+  }
+})
+
+// Billable state (not in schema but needed for form)
+const billable = ref(true)
+
+// Watch for entry changes to populate form
 watch(() => props.entry, (newEntry) => {
   if (newEntry) {
-    initForm(newEntry)
+    form.setValues({
+      projectId: newEntry.projectId,
+      // invoiceId: newEntry.invoiceId || 0, // Schema doesn't strictly need invoiceId for editing unless we use it?
+      // timeEntrySchema doesn't have invoiceId at top level usually? 
+      // Checked schema: `id`, `projectId`, `date`, `startTime`, `endTime`, `durationSeconds`, `description`, `invoiced`.
+      // It DOES NOT show `invoiceId` in the file I read (Step 507).
+      // So I won't set it in the form values for validation, but we can preserve it if needed.
+      // Actually `TimeEntry` type has it. But schema is what we validate against.
+      // If we don't put it in form, it won't be in `values`.
+      // But we emit the full object.
+      // Let's assume validation schema limits what's in `values`.
+      // We can add it to the submit payload manually if it's not in the form.
+
+      date: newEntry.date,
+      startTime: newEntry.startTime || undefined,
+      endTime: newEntry.endTime || undefined,
+      durationSeconds: newEntry.durationSeconds,
+      description: newEntry.description,
+      invoiced: newEntry.invoiced,
+      // Billable is missing in schema?
+      // Step 507 schema: id, projectId, date, startTime, endTime, durationSeconds, description, invoiced.
+      // NO `billable`.
+      // But `TimeEntry` interface probably has `billable`.
+      // I should add `billable` to the form handling even if schema doesn't validate it (if extended) or just add it to payload.
+      // I'll add a manual ref for billable if it's not in schema, OR assume user might have updated schema locally but I read it and it wasn't there.
+      // To be safe, I'll use a ref for billable or just `invoiced` as proxy? 
+      // Original form had billable checkbox.
+      // I will add a local ref for `billable` synced with props/submit.
+    })
+    billable.value = newEntry.billable
   } else {
     resetForm()
   }
 }, { immediate: true })
 
-
-
-function initForm(entry: TimeEntry) {
-  formValue.value = {
-    projectId: entry.projectId,
-    invoiceId: entry.invoiceId || 0,
-    date: entry.date,
-    // NTimePicker requires null (not empty string) for "no value"
-    startTime: entry.startTime || null,
-    endTime: entry.endTime || null,
-    durationSeconds: entry.durationSeconds,
-    description: entry.description,
-    billable: entry.billable,
-    invoiced: entry.invoiced
-  }
-}
-
 function resetForm() {
-  formValue.value = {
-    projectId: 0,
-    invoiceId: 0,
-    date: new Date().toISOString().split('T')[0] ?? '',
-    startTime: null,
-    endTime: null,
-    durationSeconds: 0,
-    description: '',
-    billable: true,
-    invoiced: false
-  }
-}
-
-function handleClose() {
-  emit('update:show', false)
+  form.resetForm({
+    values: {
+      projectId: undefined,
+      date: new Date().toISOString().split('T')[0],
+      startTime: undefined,
+      endTime: undefined,
+      durationSeconds: 0,
+      description: '',
+      invoiced: false
+    }
+  })
+  billable.value = true
 }
 
 function handleUpdateShow(value: boolean) {
   emit('update:show', value)
 }
 
-function handleSubmit() {
-  formRef.value?.validate((errors) => {
-    if (!errors) {
-      // Convert null time values back to empty string for backend
-      const submitData = {
-        ...formValue.value,
-        startTime: formValue.value.startTime || '',
-        endTime: formValue.value.endTime || ''
-      }
-      if (props.entry) {
-        emit('submit', { ...submitData, id: props.entry.id } as TimeEntry)
-      } else {
-        emit('submit', submitData as Omit<TimeEntry, 'id'>)
-      }
-      handleClose()
-    } else {
-      message.error(t('form.saveError'))
-    }
-  })
+function handleClose() {
+  handleUpdateShow(false)
 }
+
+const onSubmit = form.handleSubmit((values) => {
+  // Construct payload
+  const payload: any = {
+    projectId: values.projectId,
+    date: values.date,
+    startTime: values.startTime || '',
+    endTime: values.endTime || '',
+    durationSeconds: values.durationSeconds,
+    description: values.description,
+    invoiced: values.invoiced,
+    billable: billable.value,
+    invoiceId: props.entry?.invoiceId || 0
+  }
+
+  if (props.entry) {
+    emit('submit', { ...payload, id: props.entry.id } as TimeEntry)
+  } else {
+    emit('submit', payload as Omit<TimeEntry, 'id'>)
+  }
+  handleClose()
+})
 </script>
 
 <template>
-  <n-modal :show="show" @update:show="handleUpdateShow" preset="card" :style="{ width: '600px' }"
-    :title="entry ? t('timesheet.form.editTitle') : t('timesheet.form.createTitle')">
-    <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top"
-      require-mark-placement="right-hanging">
-      <n-form-item :label="t('timesheet.form.project')" path="projectId">
-        <n-select v-model:value="formValue.projectId" :options="projects.map(p => ({ label: p.name, value: p.id }))"
-          :placeholder="t('timesheet.timer.selectProject')" />
-      </n-form-item>
+  <Dialog :open="show" @update:open="handleUpdateShow">
+    <DialogContent class="sm:max-w-[600px]">
+      <DialogHeader>
+        <DialogTitle>{{ entry ? t('timesheet.form.editTitle') : t('timesheet.form.createTitle') }}</DialogTitle>
+      </DialogHeader>
 
-      <n-form-item :label="t('timesheet.form.date')" path="date">
-        <n-date-picker v-model:formatted-value="formValue.date" type="date" value-format="yyyy-MM-dd"
-          style="width: 100%;" />
-      </n-form-item>
+      <form @submit="onSubmit" class="space-y-6">
+        <!-- Project -->
+        <FormField v-slot="{ componentField }" name="projectId">
+          <FormItem>
+            <FormLabel>{{ t('timesheet.form.project') }}</FormLabel>
+            <Select v-bind="componentField" :model-value="componentField.modelValue?.toString()">
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue :placeholder="t('timesheet.timer.selectProject')" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem v-for="p in projects" :key="p.id" :value="p.id.toString()">
+                  {{ p.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        </FormField>
 
-      <n-form-item :label="t('timesheet.form.duration')" path="durationSeconds">
-        <n-input-number v-model:value="durationHours" :min="0" :step="0.25" placeholder="0.00" style="width: 100%;" />
-      </n-form-item>
+        <!-- Date -->
+        <FormField name="date">
+          <FormItem class="flex flex-col">
+            <FormLabel>{{ t('timesheet.form.date') }}</FormLabel>
+            <Popover>
+              <PopoverTrigger as-child>
+                <FormControl>
+                  <Button variant="outline"
+                    :class="cn('w-full pl-3 text-left font-normal', !dateValue && 'text-muted-foreground')">
+                    <span>{{ dateValue ? dateValue.toString() : "Pick a date" }}</span>
+                    <CalendarIcon class="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent class="w-auto p-0" align="start">
+                <Calendar v-model="dateValue" mode="single" />
+              </PopoverContent>
+            </Popover>
+            <FormMessage />
+          </FormItem>
+        </FormField>
 
-      <n-form-item :label="t('timesheet.form.description')" path="description">
-        <n-input v-model:value="formValue.description" type="textarea"
-          :placeholder="t('timesheet.form.descriptionPlaceholder')" :rows="3" />
-      </n-form-item>
+        <!-- Duration -->
+        <FormField name="durationSeconds">
+          <FormItem>
+            <FormLabel>{{ t('timesheet.form.duration') }} (Hours)</FormLabel>
+            <FormControl>
+              <Input type="number" step="0.25" min="0" v-model="durationHours" placeholder="0.00" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
 
-      <n-form-item :label="t('timesheet.form.timeRange')">
-        <n-space>
-          <n-time-picker v-model:formatted-value="formValue.startTime" value-format="HH:mm" format="HH:mm"
-            :placeholder="t('timesheet.form.startTime')" />
-          <span>to</span>
-          <n-time-picker v-model:formatted-value="formValue.endTime" value-format="HH:mm" format="HH:mm"
-            :placeholder="t('timesheet.form.endTime')" />
-        </n-space>
-      </n-form-item>
+        <!-- Description -->
+        <FormField v-slot="{ componentField }" name="description">
+          <FormItem>
+            <FormLabel>{{ t('timesheet.form.description') }}</FormLabel>
+            <FormControl>
+              <Textarea v-bind="componentField" :rows="3" :placeholder="t('timesheet.form.descriptionPlaceholder')" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
 
-      <n-form-item>
-        <n-space>
-          <n-checkbox v-model:checked="formValue.billable">{{ t('timesheet.entries.billable') }}</n-checkbox>
-          <n-checkbox v-model:checked="formValue.invoiced">{{ t('timesheet.form.alreadyInvoiced') }}</n-checkbox>
-        </n-space>
-      </n-form-item>
-    </n-form>
+        <!-- Time Range -->
+        <div class="grid grid-cols-2 gap-4">
+          <FormField v-slot="{ componentField }" name="startTime">
+            <FormItem>
+              <FormLabel>{{ t('timesheet.form.startTime') }}</FormLabel>
+              <FormControl>
+                <Input type="time" v-bind="componentField" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
-    <template #footer>
-      <n-space justify="end">
-        <n-button @click="handleClose">{{ t('common.cancel') }}</n-button>
-        <n-button type="primary" @click="handleSubmit">
-          {{ entry ? t('timesheet.form.update') : t('timesheet.logTime') }}
-        </n-button>
-      </n-space>
-    </template>
-  </n-modal>
+          <FormField v-slot="{ componentField }" name="endTime">
+            <FormItem>
+              <FormLabel>{{ t('timesheet.form.endTime') }}</FormLabel>
+              <FormControl>
+                <Input type="time" v-bind="componentField" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+        </div>
+
+        <!-- Checkboxes -->
+        <div class="flex items-center gap-6">
+          <div class="flex items-center gap-2">
+            <Checkbox id="billable" :checked="billable" @update:checked="(v: boolean) => billable = !!v" />
+            <label for="billable"
+              class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              {{ t('timesheet.entries.billable') }}
+            </label>
+          </div>
+
+          <FormField v-slot="{ value, handleChange }" name="invoiced">
+            <FormItem class="flex flex-row items-center gap-2 space-y-0">
+              <FormControl>
+                <Checkbox :checked="value" @update:checked="handleChange" />
+              </FormControl>
+              <FormLabel class="font-normal">
+                {{ t('timesheet.form.alreadyInvoiced') }}
+              </FormLabel>
+            </FormItem>
+          </FormField>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" @click="handleClose">
+            {{ t('common.cancel') }}
+          </Button>
+          <Button type="submit">
+            {{ entry ? t('timesheet.form.update') : t('timesheet.logTime') }}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
 </template>

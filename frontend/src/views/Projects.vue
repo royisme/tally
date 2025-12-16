@@ -1,31 +1,45 @@
 <script setup lang="ts">
 import { h, onMounted, ref } from 'vue'
-import {
-  NButton, NDataTable, NTag, NSpace, NProgress, NText, type DataTableColumns,
-  useMessage, useDialog
-} from 'naive-ui'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import type { ColumnDef } from '@tanstack/vue-table'
+import { storeToRefs } from 'pinia'
+import { toast } from 'vue-sonner'
+
+import { useProjectStore } from '@/stores/projects'
+import { useClientStore } from '@/stores/clients'
+import type { Project } from '@/types'
+
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import ProjectFormModal from '@/components/ProjectFormModal.vue'
-import { useProjectStore } from '@/stores/projects'
-import { useClientStore } from '@/stores/clients'
-import { storeToRefs } from 'pinia'
-import { useI18n } from 'vue-i18n'
-import type { Project } from '@/types'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Plus, Edit, FolderOpen, Trash2 } from 'lucide-vue-next'
 
-const message = useMessage()
-const dialog = useDialog()
 const router = useRouter()
 const projectStore = useProjectStore()
 const clientStore = useClientStore()
-const { projects, loading } = storeToRefs(projectStore)
+const { projects } = storeToRefs(projectStore)
 const { clients } = storeToRefs(clientStore)
 const { t } = useI18n()
 
 const showModal = ref(false)
 const editingProject = ref<Project | null>(null)
+
+// Delete Dialog State
+const showDeleteDialog = ref(false)
+const projectToDelete = ref<Project | null>(null)
 
 function handleNewProject() {
   editingProject.value = null
@@ -37,34 +51,35 @@ function handleEditProject(project: Project) {
   showModal.value = true
 }
 
-function handleDeleteProject(project: Project) {
-  dialog.warning({
-    title: t('projects.deleteTitle'),
-    content: t('projects.deleteConfirm', { name: project.name }),
-    positiveText: t('common.delete'),
-    negativeText: t('common.cancel'),
-    onPositiveClick: async () => {
-      try {
-        await projectStore.deleteProject(project.id)
-        message.success(t('projects.deleteSuccess'))
-      } catch (error) {
-        message.error(t('projects.deleteError'))
-      }
-    }
-  })
+function confirmDeleteProject(project: Project) {
+  projectToDelete.value = project
+  showDeleteDialog.value = true
+}
+
+async function handleDeleteProject() {
+  if (!projectToDelete.value) return
+  try {
+    await projectStore.deleteProject(projectToDelete.value.id)
+    toast.success(t('projects.deleteSuccess'))
+  } catch (error) {
+    toast.error(t('projects.deleteError'))
+  } finally {
+    showDeleteDialog.value = false
+    projectToDelete.value = null
+  }
 }
 
 async function handleSubmitProject(project: Omit<Project, 'id'> | Project) {
   try {
     if ('id' in project) {
       await projectStore.updateProject(project)
-      message.success(t('projects.updateSuccess'))
+      toast.success(t('projects.updateSuccess'))
     } else {
       await projectStore.createProject(project)
-      message.success(t('projects.createSuccess'))
+      toast.success(t('projects.createSuccess'))
     }
   } catch (error) {
-    message.error(t('projects.saveError'))
+    toast.error(t('projects.saveError'))
   }
 }
 
@@ -73,114 +88,86 @@ onMounted(() => {
   clientStore.fetchClients()
 })
 
-const columns: DataTableColumns<Project> = [
+const columns: ColumnDef<Project>[] = [
   {
-    title: () => t('projects.columns.projectName'),
-    key: 'name',
-    width: 250,
-    render(row) {
+    accessorKey: 'name',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('projects.columns.projectName') }),
+    cell: ({ row }) => {
+      const p = row.original
       return h('div', [
-        h('div', { style: 'font-weight: 600;' }, row.name),
-        h(NText, { depth: 3, style: 'font-size: 12px;' }, { default: () => row.description || '-' })
+        h('div', { class: 'font-semibold' }, p.name),
+        h('span', { class: 'text-xs text-muted-foreground' }, p.description || '-')
       ])
     }
   },
   {
-    title: () => t('projects.columns.status'),
-    key: 'status',
-    width: 120,
-    render(row) {
-      let type: 'success' | 'warning' | 'default' = 'default'
-      if (row.status === 'active') type = 'success'
-      if (row.status === 'archived') type = 'warning'
+    accessorKey: 'status',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('projects.columns.status') }),
+    cell: ({ row }) => {
+      const status = row.getValue('status') as string
+      let variant: 'default' | 'secondary' | 'outline' = 'outline'
+      if (status === 'active') variant = 'default'
+      if (status === 'archived') variant = 'secondary'
 
-      return h(
-        NTag,
-        { type, bordered: false, round: true, size: 'small' },
-        { default: () => t(`projects.status.${row.status}`) }
-      )
+      return h(Badge, { variant, class: 'capitalize rounded-full' }, () => t(`projects.status.${status}`))
     }
   },
   {
-    title: () => t('projects.columns.progress'),
-    key: 'progress', // Mock progress for UI demo
-    render() {
+    accessorKey: 'progress',
+    header: t('projects.columns.progress'),
+    cell: () => {
       const randomProgress = Math.floor(Math.random() * 40) + 30
-      return h(
-        NProgress,
-        {
-          type: 'line',
-          percentage: randomProgress,
-          color: 'var(--n-primary-color)',
-          height: 6,
-          'show-indicator': false
-        }
-      )
+      return h(Progress, { modelValue: randomProgress, class: 'h-2 w-[100px]' })
     }
   },
   {
-    title: () => t('projects.columns.deadline'),
-    key: 'deadline',
-    render(row) {
-      return row.deadline || t('projects.columns.noDeadline')
+    accessorKey: 'deadline',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('projects.columns.deadline') }),
+    cell: ({ row }) => {
+      return row.original.deadline || t('projects.columns.noDeadline')
     }
   },
   {
-    title: () => t('projects.columns.hourlyRate'),
-    key: 'hourlyRate',
-    render(row) {
-      return h(NText, { depth: 1 }, { default: () => `${row.currency} $${row.hourlyRate}/hr` })
+    accessorKey: 'hourlyRate',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('projects.columns.hourlyRate') }),
+    cell: ({ row }) => {
+      return h('span', { class: 'font-medium' }, `${row.original.currency} $${row.original.hourlyRate}/hr`)
     }
   },
   {
-    title: () => t('projects.columns.actions'),
-    key: 'actions',
-    width: 140,
-    render(row) {
-      return h(NSpace, { size: 'small' }, {
-        default: () => [
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              circle: true,
-              onClick: (e) => {
-                e.stopPropagation()
-                router.push(`/projects/${row.id}`)
-              }
-            },
-            { icon: () => h(FolderOpen, { class: 'w-4 h-4' }) }
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              circle: true,
-              onClick: (e) => {
-                e.stopPropagation()
-                handleEditProject(row)
-              }
-            },
-            { icon: () => h(Edit, { class: 'w-4 h-4' }) }
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              quaternary: true,
-              circle: true,
-              type: 'error',
-              onClick: (e) => {
-                e.stopPropagation()
-                handleDeleteProject(row)
-              }
-            },
-            { icon: () => h(Trash2, { class: 'w-4 h-4' }) }
-          )
-        ]
-      })
+    id: 'actions',
+    header: t('projects.columns.actions'),
+    cell: ({ row }) => {
+      const project = row.original
+      return h('div', { class: 'flex gap-1' }, [
+        h(Button, {
+          size: 'icon',
+          variant: 'ghost',
+          class: 'h-8 w-8',
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation() // Prevent row click if any
+            router.push(`/projects/${project.id}`)
+          }
+        }, () => h(FolderOpen, { class: 'w-4 h-4' })),
+        h(Button, {
+          size: 'icon',
+          variant: 'ghost',
+          class: 'h-8 w-8',
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation()
+            handleEditProject(project)
+          }
+        }, () => h(Edit, { class: 'w-4 h-4' })),
+        h(Button, {
+          size: 'icon',
+          variant: 'ghost',
+          class: 'h-8 w-8 text-destructive hover:text-destructive',
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation()
+            confirmDeleteProject(project)
+          }
+        }, () => h(Trash2, { class: 'w-4 h-4' }))
+      ])
     }
   }
 ]
@@ -190,25 +177,40 @@ const columns: DataTableColumns<Project> = [
   <PageContainer>
     <PageHeader :title="t('projects.title')" :subtitle="t('projects.subtitle')">
       <template #extra>
-        <n-button type="primary" @click="handleNewProject">
-          <template #icon>
-            <Plus class="w-4 h-4" />
-          </template>
+        <Button @click="handleNewProject">
+          <Plus class="w-4 h-4 mr-2" />
           {{ t('projects.addProject') }}
-        </n-button>
+        </Button>
       </template>
     </PageHeader>
 
     <ProjectFormModal v-model:show="showModal" :project="editingProject" :clients="clients"
       @submit="handleSubmitProject" />
 
-    <n-data-table :columns="columns" :data="projects" :loading="loading" :bordered="false" class="project-table" />
+    <div class="glass-card rounded-lg border bg-card text-card-foreground shadow-sm">
+      <div class="p-0">
+        <DataTable :columns="columns" :data="projects" />
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <Dialog v-model:open="showDeleteDialog">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ t('projects.deleteTitle') }}</DialogTitle>
+          <DialogDescription>
+            {{ t('projects.deleteConfirm', { name: projectToDelete?.name }) }}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" @click="showDeleteDialog = false">
+            {{ t('common.cancel') }}
+          </Button>
+          <Button variant="destructive" @click="handleDeleteProject">
+            {{ t('common.delete') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </PageContainer>
 </template>
-
-<style scoped>
-.project-table :deep(.n-data-table-th) {
-  font-weight: 600;
-  color: var(--n-text-color-2);
-}
-</style>

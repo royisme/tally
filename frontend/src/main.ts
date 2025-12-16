@@ -5,9 +5,6 @@ import { createI18n } from "vue-i18n";
 import router from "./router";
 import App from "./App.vue";
 import "./style.css";
-// Naive UI recommended fonts
-import "vfonts/Lato.css";
-import "vfonts/FiraCode.css";
 import { applyThemeToRoot } from "@/theme/tokens";
 
 // ECharts global registration for desktop app
@@ -59,7 +56,7 @@ setupZodI18n(i18n);
 
 app.mount("#app");
 
-// Prevent duplicate Naive UI global styles during Vite HMR (dev only).
+// Clean up app during Vite HMR (dev only) to prevent duplicated styles.
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     app.unmount();

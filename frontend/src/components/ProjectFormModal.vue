@@ -1,9 +1,48 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { NModal, NForm, NFormItem, NInput, NInputNumber, NSelect, NDatePicker, NButton, NSpace, NDynamicTags, useMessage } from 'naive-ui'
-import type { Project, Client } from '@/types'
-import type { FormInst } from 'naive-ui'
+import { watch, computed } from 'vue'
+import { useForm } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
 import { useI18n } from 'vue-i18n'
+import type { Project, Client } from '@/types'
+import { projectSchema } from '@/schemas/project'
+import { Calendar as CalendarIcon } from 'lucide-vue-next'
+import { cn } from '@/lib/utils'
+import { z } from 'zod'
+import {
+  parseDate,
+  type DateValue,
+} from '@internationalized/date'
+
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 
 interface Props {
   show: boolean
@@ -19,47 +58,19 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
-const message = useMessage()
 const { t } = useI18n()
 
-// Local form data type that allows null for optional date fields
-interface ProjectFormData {
-  clientId: number | null
-  name: string
-  description: string
-  hourlyRate: number
-  currency: string
-  status: string
-  deadline: string | null
-  tags: string[]
-  serviceType: string
-}
+// Extend schema to include serviceType which was missing in base schema
+const formSchema = toTypedSchema(projectSchema.extend({
+  serviceType: z.string().optional(),
+  status: z.enum(["active", "archived", "completed"]),
+  tags: z.array(z.string()).default([]),
+  deadline: z.string().optional(),
+}))
 
-const formRef = ref<FormInst | null>(null)
-const formValue = ref<ProjectFormData>({
-  clientId: null,
-  name: '',
-  description: '',
-  hourlyRate: 0,
-  currency: 'USD',
-  status: 'active',
-  deadline: null,
-  tags: [],
-  serviceType: 'software_development'
+const form = useForm({
+  validationSchema: formSchema,
 })
-
-import { projectSchema } from '@/schemas/project'
-import { useZodRule } from '@/utils/validation'
-
-const rules = {
-  name: useZodRule(projectSchema.shape.name),
-  clientId: useZodRule(projectSchema.shape.clientId),
-  hourlyRate: useZodRule(projectSchema.shape.hourlyRate),
-  currency: useZodRule(projectSchema.shape.currency),
-  status: useZodRule(projectSchema.shape.status),
-  // Naive UI validator for tags (array) via Zod
-  tags: useZodRule(projectSchema.shape.tags)
-}
 
 const currencyOptions = [
   { label: 'USD', value: 'USD' },
@@ -82,125 +93,254 @@ const serviceTypeOptions = [
   { label: 'Other', value: 'other' }
 ]
 
+// Computed for tags handling (array <-> comma separated string)
+const tagsString = computed({
+  get: () => {
+    const tags = form.values.tags
+    return Array.isArray(tags) ? tags.join(', ') : ''
+  },
+  set: (val: string) => {
+    const tags = val.split(',').map(s => s.trim()).filter(Boolean)
+    form.setFieldValue('tags', tags)
+  }
+})
+
+// Date handling Helper
+const dateValue = computed({
+  get: (): DateValue | undefined => {
+    const d = form.values.deadline
+    if (!d) return undefined
+    try {
+      return parseDate(d)
+    } catch {
+      return undefined
+    }
+  },
+  set: (val: DateValue | undefined) => {
+    form.setFieldValue('deadline', val ? val.toString() : undefined)
+  }
+})
+
 watch(() => props.project, (newProject) => {
   if (newProject) {
-    formValue.value = {
+    form.setValues({
       clientId: newProject.clientId,
       name: newProject.name,
       description: newProject.description || '',
       hourlyRate: newProject.hourlyRate,
       currency: newProject.currency,
-      status: newProject.status,
-      deadline: newProject.deadline || null,
+      status: newProject.status as "active" | "archived" | "completed",
+      deadline: newProject.deadline || undefined,
       tags: newProject.tags || [],
+      // @ts-ignore
       serviceType: newProject.serviceType || 'software_development'
-    }
+    })
   } else {
-    formValue.value = {
-      clientId: props.initialClientId || null,
-      name: '',
-      description: '',
-      hourlyRate: 0,
-      currency: 'USD',
-      status: 'active',
-      deadline: null,
-      tags: [],
-      serviceType: 'software_development'
-    }
+    form.resetForm({
+      values: {
+        clientId: props.initialClientId || undefined,
+        name: '',
+        description: '',
+        hourlyRate: 0,
+        currency: 'USD',
+        status: 'active',
+        deadline: undefined,
+        tags: [],
+        serviceType: 'software_development'
+      }
+    })
   }
 }, { immediate: true })
-
-function handleClose() {
-  emit('update:show', false)
-}
 
 function handleUpdateShow(value: boolean) {
   emit('update:show', value)
 }
 
-function handleSubmit() {
-  formRef.value?.validate((errors) => {
-    if (!errors) {
-      // Convert null values to backend-compatible defaults
-      const submitData = {
-        ...formValue.value,
-        clientId: formValue.value.clientId || 0,
-        deadline: formValue.value.deadline || ''
-      }
-      if (props.project) {
-        emit('submit', { ...submitData, id: props.project.id } as Project)
-      } else {
-        emit('submit', submitData as Omit<Project, 'id'>)
-      }
-      handleClose()
-    } else {
-      message.error('Please fix form errors')
-    }
-  })
-}
+const onSubmit = form.handleSubmit((values) => {
+  const submitData = {
+    ...values,
+    clientId: values.clientId || 0,
+    deadline: values.deadline || '',
+    tags: values.tags || [],
+    description: values.description || '',
+    serviceType: values.serviceType || 'software_development'
+  }
+
+  if (props.project) {
+    emit('submit', { ...submitData, id: props.project.id } as Project)
+  } else {
+    emit('submit', submitData as Omit<Project, 'id'>)
+  }
+  handleUpdateShow(false)
+})
 </script>
 
 <template>
-  <n-modal :show="show" @update:show="handleUpdateShow" preset="card" :style="{ width: '600px' }"
-    :title="project ? t('projects.editProject') : t('projects.newProject')">
-    <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top"
-      require-mark-placement="right-hanging">
-      <n-form-item :label="t('form.project.client')" path="clientId">
-        <n-select v-model:value="formValue.clientId" :options="clients.map(c => ({ label: c.name, value: c.id }))"
-          :placeholder="t('form.project.clientPlaceholder')" filterable />
-      </n-form-item>
+  <Dialog :open="show" @update:open="handleUpdateShow">
+    <DialogContent class="sm:max-w-[600px]">
+      <DialogHeader>
+        <DialogTitle>{{ project ? t('projects.editProject') : t('projects.newProject') }}</DialogTitle>
+      </DialogHeader>
 
-      <n-form-item :label="t('form.project.name')" path="name">
-        <n-input v-model:value="formValue.name" :placeholder="t('form.project.namePlaceholder')" />
-      </n-form-item>
+      <form @submit="onSubmit" class="space-y-4">
+        <FormField v-slot="{ componentField }" name="clientId">
+          <FormItem>
+            <FormLabel>{{ t('form.project.client') }}</FormLabel>
+            <Select v-bind="componentField" :model-value="componentField.modelValue?.toString()">
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue :placeholder="t('form.project.clientPlaceholder')" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem v-for="client in clients" :key="client.id" :value="client.id.toString()">
+                  {{ client.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        </FormField>
 
-      <n-space style="width: 100%">
-        <n-form-item label="Service Type" path="serviceType" style="flex: 1;">
-          <n-select v-model:value="formValue.serviceType" :options="serviceTypeOptions" />
-        </n-form-item>
+        <FormField v-slot="{ componentField }" name="name">
+          <FormItem>
+            <FormLabel>{{ t('form.project.name') }}</FormLabel>
+            <FormControl>
+              <Input v-bind="componentField" :placeholder="t('form.project.namePlaceholder')" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
 
-        <n-form-item :label="t('form.project.status')" path="status" style="flex: 1;">
-          <n-select v-model:value="formValue.status" :options="statusOptions" />
-        </n-form-item>
-      </n-space>
+        <div class="grid grid-cols-2 gap-4">
+          <FormField v-slot="{ componentField }" name="serviceType">
+            <FormItem>
+              <FormLabel>Service Type</FormLabel>
+              <Select v-bind="componentField">
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem v-for="option in serviceTypeOptions" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
-      <n-form-item :label="t('form.project.description')" path="description">
-        <n-input v-model:value="formValue.description" type="textarea"
-          :placeholder="t('form.project.descriptionPlaceholder')" :rows="2" />
-      </n-form-item>
+          <FormField v-slot="{ componentField }" name="status">
+            <FormItem>
+              <FormLabel>{{ t('form.project.status') }}</FormLabel>
+              <Select v-bind="componentField">
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem v-for="option in statusOptions" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+        </div>
 
-      <n-space>
-        <n-form-item :label="t('form.project.hourlyRate')" path="hourlyRate" style="flex: 1;">
-          <n-input-number v-model:value="formValue.hourlyRate" :min="0" placeholder="0.00" style="width: 100%;">
-            <template #prefix>
-              {{ formValue.currency === 'USD' || formValue.currency === 'CAD' ? '$' : (formValue.currency === 'EUR' ?
-                '€' : (formValue.currency === 'GBP' ? '£' : '$')) }}
-            </template>
-          </n-input-number>
-        </n-form-item>
+        <FormField v-slot="{ componentField }" name="description">
+          <FormItem>
+            <FormLabel>{{ t('form.project.description') }}</FormLabel>
+            <FormControl>
+              <Textarea v-bind="componentField" :placeholder="t('form.project.descriptionPlaceholder')" rows="2" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
 
-        <n-form-item :label="t('form.project.currency')" path="currency" style="flex: 1;">
-          <n-select v-model:value="formValue.currency" :options="currencyOptions" />
-        </n-form-item>
+        <div class="grid grid-cols-3 gap-4">
+          <FormField v-slot="{ componentField }" name="hourlyRate">
+            <FormItem>
+              <FormLabel>{{ t('form.project.hourlyRate') }}</FormLabel>
+              <FormControl>
+                <div class="relative w-full max-w-sm items-center">
+                  <Input v-bind="componentField" type="number" step="0.01" min="0" placeholder="0.00" class="pl-8" />
+                  <span class="absolute start-0 inset-y-0 flex items-center justify-center px-2">
+                    <span class="text-sm text-muted-foreground">
+                      {{ form.values.currency === 'USD' || form.values.currency === 'CAD' ? '$' : (form.values.currency
+                        === 'EUR' ? '€' : (form.values.currency === 'GBP' ? '£' : '$')) }}
+                    </span>
+                  </span>
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
-        <n-form-item :label="t('form.project.deadline')" path="deadline" style="flex: 1;">
-          <n-date-picker v-model:formatted-value="formValue.deadline" type="date" value-format="yyyy-MM-dd"
-            style="width: 100%;" />
-        </n-form-item>
-      </n-space>
+          <FormField v-slot="{ componentField }" name="currency">
+            <FormItem>
+              <FormLabel>{{ t('form.project.currency') }}</FormLabel>
+              <Select v-bind="componentField">
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Currency" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem v-for="option in currencyOptions" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
-      <n-form-item :label="t('form.project.tags')" path="tags">
-        <n-dynamic-tags v-model:value="formValue.tags" />
-      </n-form-item>
-    </n-form>
+          <FormField name="deadline">
+            <FormItem class="flex flex-col">
+              <FormLabel>{{ t('form.project.deadline') }}</FormLabel>
+              <Popover>
+                <PopoverTrigger as-child>
+                  <FormControl>
+                    <Button variant="outline"
+                      :class="cn('w-full pl-3 text-left font-normal', !dateValue && 'text-muted-foreground')">
+                      <span>{{ dateValue ? dateValue.toString() : "Pick a date" }}</span>
+                      <CalendarIcon class="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent class="w-auto p-0" align="start">
+                  <Calendar v-model="dateValue" mode="single" initial-focus />
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+        </div>
 
-    <template #footer>
-      <n-space justify="end">
-        <n-button @click="handleClose">{{ t('form.cancel') }}</n-button>
-        <n-button type="primary" @click="handleSubmit">
-          {{ project ? t('form.update') : t('form.create') }}
-        </n-button>
-      </n-space>
-    </template>
-  </n-modal>
+        <FormField name="tags">
+          <FormItem>
+            <FormLabel>{{ t('form.project.tags') }}</FormLabel>
+            <FormControl>
+              <Input v-model="tagsString" placeholder="Tags (comma separated)" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+
+        <DialogFooter>
+          <Button variant="outline" type="button" @click="handleUpdateShow(false)">
+            {{ t('form.cancel') }}
+          </Button>
+          <Button type="submit">
+            {{ project ? t('form.update') : t('form.create') }}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
 </template>

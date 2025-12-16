@@ -1,23 +1,31 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-    NButton, NCard, NSpace, NTag, NText, NDescriptions, NDescriptionsItem,
-    NDataTable, NSpin, NBreadcrumb, NBreadcrumbItem, type DataTableColumns, useMessage
-} from 'naive-ui'
+// Naive UI components removed
 import PageContainer from '@/components/PageContainer.vue'
 import ProjectFormModal from '@/components/ProjectFormModal.vue'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table'
 import { useProjectStore } from '@/stores/projects'
 import { useClientStore } from '@/stores/clients'
 import { useTimesheetStore } from '@/stores/timesheet'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import type { Project, Client, TimeEntry } from '@/types'
-import { ArrowLeft, Edit } from 'lucide-vue-next'
+import { ArrowLeft, Edit, Loader2 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 
 const route = useRoute()
 const router = useRouter()
-const message = useMessage()
 const { t } = useI18n()
 
 const projectStore = useProjectStore()
@@ -68,142 +76,151 @@ async function handleSubmitProject(projectData: Omit<Project, 'id'> | Project) {
     try {
         if ('id' in projectData) {
             await projectStore.updateProject(projectData)
-            message.success(t('projects.updateSuccess'))
+            toast.success(t('projects.updateSuccess'))
         }
     } catch (error) {
-        message.error(t('projects.saveError'))
+        toast.error(t('projects.saveError'))
     }
 }
-
-// Time entries table columns
-const entryColumns: DataTableColumns<TimeEntry> = [
-    {
-        title: t('timesheet.columns.date'),
-        key: 'date',
-        width: 120
-    },
-    {
-        title: t('timesheet.columns.task'),
-        key: 'description',
-    },
-    {
-        title: t('timesheet.columns.hours'),
-        key: 'durationSeconds',
-        width: 100,
-        render(row) {
-            return `${(row.durationSeconds / 3600).toFixed(1)}h`
-        }
-    },
-    {
-        title: t('timesheet.columns.billable'),
-        key: 'billable',
-        width: 100,
-        render(row) {
-            return h(NTag, {
-                type: row.billable ? 'success' : 'default',
-                size: 'small',
-                bordered: false,
-                round: true
-            }, { default: () => row.billable ? t('timesheet.entries.billable') : t('timesheet.entries.nonBillable') })
-        }
-    }
-]
 </script>
 
 <template>
     <PageContainer fill>
-        <n-spin :show="loading" class="detail-root">
-            <template v-if="project">
+        <div class="h-full flex flex-col">
+            <div v-if="loading" class="flex items-center justify-center h-full">
+                <Loader2 class="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+
+            <template v-else-if="project">
                 <!-- Secondary Page Header: Back + Breadcrumb -->
-                <n-space align="center" :size="8" style="margin-bottom: 12px;">
-                    <n-button quaternary size="small" @click="handleBack">
-                        <template #icon>
-                            <ArrowLeft class="w-4 h-4" />
-                        </template>
-                    </n-button>
-                    <n-breadcrumb>
-                        <n-breadcrumb-item @click="handleBack" style="cursor: pointer;">
-                            {{ t('nav.projects') }}
-                        </n-breadcrumb-item>
-                        <n-breadcrumb-item>{{ project.name }}</n-breadcrumb-item>
-                    </n-breadcrumb>
-                </n-space>
+                <div class="flex items-center gap-2 mb-4">
+                    <Button variant="ghost" size="icon" class="h-8 w-8" @click="handleBack">
+                        <ArrowLeft class="w-4 h-4" />
+                    </Button>
+                    <nav class="flex items-center text-sm text-muted-foreground">
+                        <span class="hover:text-foreground cursor-pointer transition-colors" @click="handleBack">{{
+                            t('nav.projects') }}</span>
+                        <span class="mx-2">/</span>
+                        <span class="font-medium text-foreground">{{ project.name }}</span>
+                    </nav>
+                </div>
 
                 <ProjectFormModal v-model:show="showModal" :project="project" :clients="clients"
                     @submit="handleSubmitProject" />
 
-                <div class="detail-content">
-                    <!-- Project Info Card: Compact 3-column with Edit in header -->
-                    <n-card size="small" :content-style="{ padding: '12px 16px' }">
-                        <template #header>
-                            <n-space align="center" justify="space-between" style="width: 100%;">
-                                <span>{{ t('projects.detail.info') }}</span>
-                                <n-button size="small" type="primary" @click="handleEdit">
-                                    <template #icon>
-                                        <Edit class="w-4 h-4" />
-                                    </template>
+                <div class="flex flex-col gap-4 flex-1 min-h-0">
+                    <!-- Project Info Card -->
+                    <Card class="shrink-0">
+                        <CardHeader class="pb-2">
+                            <div class="flex items-center justify-between w-full">
+                                <h3 class="font-semibold leading-none tracking-tight">{{ t('projects.detail.info') }}
+                                </h3>
+                                <Button size="sm" @click="handleEdit">
+                                    <Edit class="w-4 h-4 mr-2" />
                                     {{ t('common.edit') }}
-                                </n-button>
-                            </n-space>
-                        </template>
-                        <n-descriptions :column="3" label-placement="top" size="small">
-                            <n-descriptions-item :label="t('form.project.client')">
-                                {{ client?.name || '-' }}
-                            </n-descriptions-item>
-                            <n-descriptions-item :label="t('form.project.status')">
-                                <n-tag
-                                    :type="project.status === 'active' ? 'success' : (project.status === 'archived' ? 'warning' : 'default')"
-                                    size="small" bordered round>
-                                    {{ t(`projects.status.${project.status}`) }}
-                                </n-tag>
-                            </n-descriptions-item>
-                            <n-descriptions-item :label="t('form.project.hourlyRate')">
-                                {{ project.currency }} ${{ project.hourlyRate }}/hr
-                            </n-descriptions-item>
-                            <n-descriptions-item :label="t('form.project.deadline')">
-                                {{ project.deadline || t('projects.columns.noDeadline') }}
-                            </n-descriptions-item>
-                            <n-descriptions-item :label="t('projects.detail.totalHours')">
-                                {{ totalHours }}h
-                            </n-descriptions-item>
-                            <n-descriptions-item :label="t('form.project.description')">
-                                {{ project.description || '-' }}
-                            </n-descriptions-item>
-                        </n-descriptions>
-                    </n-card>
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent class="pt-0">
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                                <div>
+                                    <p class="text-sm font-medium text-muted-foreground">{{ t('form.project.client') }}
+                                    </p>
+                                    <p class="text-sm font-medium mt-1">{{ client?.name || '-' }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-muted-foreground">{{ t('form.project.status') }}
+                                    </p>
+                                    <Badge
+                                        :variant="project.status === 'active' ? 'default' : (project.status === 'archived' ? 'secondary' : 'outline')"
+                                        class="mt-1 capitalize rounded-full">
+                                        {{ t(`projects.status.${project.status}`) }}
+                                    </Badge>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-muted-foreground">{{
+                                        t('projects.detail.totalHours') }}</p>
+                                    <p class="text-sm font-medium mt-1">{{ totalHours }}h</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-muted-foreground">{{ t('form.project.hourlyRate')
+                                        }}</p>
+                                    <p class="text-sm font-medium mt-1">{{ project.currency }} ${{ project.hourlyRate
+                                        }}/hr</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-muted-foreground">{{ t('form.project.deadline')
+                                        }}</p>
+                                    <p class="text-sm font-medium mt-1">{{ project.deadline ||
+                                        t('projects.columns.noDeadline') }}</p>
+                                </div>
+                                <div class="col-span-full">
+                                    <p class="text-sm font-medium text-muted-foreground">{{
+                                        t('form.project.description') }}</p>
+                                    <p class="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{{
+                                        project.description || '-' }}</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                    <!-- Time Entries: Using flex-height with calc() for native DataTable scrolling -->
-                    <n-card size="small" :content-style="{ padding: '12px' }">
-                        <template #header>{{ t('projects.detail.timeEntries') }}</template>
-                        <n-data-table :columns="entryColumns" :data="projectTimeEntries" :bordered="false"
-                            :loading="entriesLoading" size="small" flex-height
-                            :style="{ height: 'calc(100vh - 340px)', minHeight: '150px' }" />
-                    </n-card>
+                    <!-- Time Entries -->
+                    <Card class="flex-1 min-h-0 flex flex-col">
+                        <CardHeader class="pb-2">
+                            <h3 class="font-semibold leading-none tracking-tight">{{ t('projects.detail.timeEntries') }}
+                            </h3>
+                        </CardHeader>
+                        <CardContent class="p-0 flex-1 min-h-0 overflow-auto">
+                            <div class="rounded-md border m-4 mt-0">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead class="w-[120px]">{{ t('timesheet.columns.date') }}</TableHead>
+                                            <TableHead>{{ t('timesheet.columns.task') }}</TableHead>
+                                            <TableHead class="w-[100px]">{{ t('timesheet.columns.hours') }}</TableHead>
+                                            <TableHead class="w-[100px]">{{ t('timesheet.columns.billable') }}
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        <template v-if="projectTimeEntries.length > 0">
+                                            <TableRow v-for="entry in projectTimeEntries" :key="entry.id">
+                                                <TableCell>{{ entry.date ? entry.date.substring(0, 10) : '-' }}
+                                                </TableCell>
+                                                <TableCell>{{ entry.description }}</TableCell>
+                                                <TableCell>{{ (entry.durationSeconds / 3600).toFixed(1) }}h</TableCell>
+                                                <TableCell>
+                                                    <Badge :variant="entry.billable ? 'default' : 'secondary'"
+                                                        class="rounded-full px-2">
+                                                        {{ entry.billable ? t('timesheet.entries.billable') :
+                                                        t('timesheet.entries.nonBillable') }}
+                                                    </Badge>
+                                                </TableCell>
+                                            </TableRow>
+                                        </template>
+                                        <TableRow v-else>
+                                            <TableCell colspan="4" class="h-24 text-center">
+                                                {{ t('common.noData') }}
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </template>
 
-            <template v-else-if="!loading">
-                <n-space vertical align="center" style="padding: 48px;">
-                    <n-text depth="3">{{ t('projects.detail.notFound') }}</n-text>
-                    <n-button @click="handleBack">{{ t('nav.projects') }}</n-button>
-                </n-space>
+            <template v-else>
+                <div class="flex flex-col items-center justify-center py-12 gap-4">
+                    <p class="text-muted-foreground">{{ t('projects.detail.notFound') }}</p>
+                    <Button @click="handleBack">{{ t('nav.projects') }}</Button>
+                </div>
             </template>
-        </n-spin>
+        </div>
     </PageContainer>
 </template>
 
 <style scoped>
-.detail-root {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.detail-content {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    flex: 1;
-    min-height: 0;
-}
+/* No extra styles needed */
 </style>

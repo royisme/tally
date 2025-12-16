@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, h } from 'vue'
-import {
-  NButton, NCard, NTag, NSpace, NText, NEmpty, NPopconfirm, NDataTable,
-  useMessage
-} from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
+import { h, onMounted, ref, computed } from 'vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 import QuickTimeEntry from '@/components/QuickTimeEntry.vue'
 import TimesheetFormModal from '@/components/TimesheetFormModal.vue'
@@ -16,14 +25,16 @@ import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import type { TimeEntry } from '@/types'
 import { dateOnlySortKey, formatISODateOnlyForLocale } from '@/utils/date'
+import { toast } from 'vue-sonner'
 import {
   Clock,
   Edit,
   Trash2,
-  Download
+  Download,
+  Loader2
 } from 'lucide-vue-next'
+import type { ColumnDef } from '@tanstack/vue-table'
 
-const message = useMessage()
 const timesheetStore = useTimesheetStore()
 const projectStore = useProjectStore()
 const { entries, enrichedEntries, loading } = storeToRefs(timesheetStore)
@@ -32,116 +43,6 @@ const { t, locale } = useI18n()
 
 const showModal = ref(false)
 const editingEntry = ref<TimeEntry | null>(null)
-
-const pagination = ref({
-  pageSize: 10
-})
-
-// Computed: paginated entries
-const columns = computed<DataTableColumns<TimeEntry & { project?: { name: string } }>>(() => [
-  {
-    title: t('timesheet.columns.date'),
-    key: 'date',
-    width: 120,
-    sorter: (a, b) => dateOnlySortKey(a.date) - dateOnlySortKey(b.date),
-    defaultSortOrder: 'descend',
-    render(row) {
-      return formatDate(row.date)
-    }
-  },
-  {
-    title: t('timesheet.columns.project'),
-    key: 'project',
-    width: 180,
-    render(row) {
-      const projectName = row.project?.name || t('timesheet.entry.noProject')
-      const projectColor = getProjectColor(row.projectId)
-      return h('div', { class: 'project-cell' }, [
-        h('span', { class: 'project-dot', style: { backgroundColor: projectColor } }),
-        h('span', {}, projectName)
-      ])
-    }
-  },
-  {
-    title: t('timesheet.columns.task'),
-    key: 'description',
-    ellipsis: { tooltip: true },
-    render(row) {
-      return row.description || '-'
-    }
-  },
-  {
-    title: t('timesheet.columns.status'),
-    key: 'billable',
-    width: 100,
-    render(row) {
-      return h(NTag, {
-        type: row.billable ? 'success' : 'default',
-        size: 'small',
-        bordered: false,
-        round: true
-      }, () => row.billable ? t('timesheet.entries.billable') : t('timesheet.entries.nonBillable'))
-    }
-  },
-  {
-    title: t('timesheet.columns.hours'),
-    key: 'durationSeconds',
-    width: 80,
-    align: 'right',
-    render(row) {
-      return formatHours(row.durationSeconds)
-    }
-  },
-  {
-    title: t('timesheet.columns.billable'),
-    key: 'billableAmount',
-    width: 100,
-    align: 'right',
-    render(row) {
-      if (!row.billable) return h('span', { class: 'text-muted' }, '-')
-      const rate = getProjectRate(row.projectId)
-      const hours = row.durationSeconds / 3600
-      const amount = (rate * hours).toFixed(2)
-      return h('span', { class: 'billable-amount' }, `$${amount}`)
-    }
-  },
-  {
-    title: '',
-    key: 'actions',
-    width: 100,
-    fixed: 'right',
-    render(row) {
-      return h(NSpace, { size: 'small', class: 'action-buttons' }, {
-        default: () => [
-          h(NButton, {
-            quaternary: true,
-            circle: true,
-            size: 'tiny',
-            onClick: (e) => {
-              e.stopPropagation()
-              handleEdit(row)
-            }
-          }, {
-            icon: () => h(Edit, { class: 'w-3.5 h-3.5' })
-          }),
-          h(NPopconfirm, {
-            onPositiveClick: () => handleDelete(row.id)
-          }, {
-            trigger: () => h(NButton, {
-              quaternary: true,
-              circle: true,
-              size: 'tiny',
-              type: 'error'
-            }, {
-              icon: () => h(Trash2, { class: 'w-3.5 h-3.5' })
-            }),
-            default: () => t('timesheet.entry.deleteConfirm')
-          })
-        ]
-      })
-    }
-  }
-])
 
 // Helpers
 function formatDate(dateStr: string): string {
@@ -174,30 +75,26 @@ function handleEdit(entry: TimeEntry) {
 async function handleDelete(id: number) {
   try {
     await timesheetStore.deleteTimeEntry(id)
-    message.success(t('timesheet.entry.deletedMsg'))
+    toast.success(t('timesheet.entry.deletedMsg'))
   } catch {
-    message.error('Failed to delete entry')
+    toast.error('Failed to delete entry')
   }
 }
-
-
 
 // Form handlers
 async function handleSubmitEntry(entry: Omit<TimeEntry, 'id'> | TimeEntry) {
   try {
     if ('id' in entry) {
       await timesheetStore.updateTimeEntry(entry)
-      message.success(t('timesheet.entry.updatedMsg'))
+      toast.success(t('timesheet.entry.updatedMsg'))
     } else {
       await timesheetStore.createTimeEntry(entry)
-      message.success('Time logged')
+      toast.success('Time logged')
     }
   } catch {
-    message.error('Failed to save time entry')
+    toast.error('Failed to save time entry')
   }
 }
-
-
 
 async function handleQuickEntry(data: { projectId: number; description: string; durationSeconds: number; date: string; billable: boolean }) {
   try {
@@ -212,20 +109,113 @@ async function handleQuickEntry(data: { projectId: number; description: string; 
       invoiced: false
     })
   } catch {
-    message.error('Failed to save entry')
+    toast.error('Failed to save entry')
   }
 }
 
 function handleExportCSV() {
   try {
     timesheetStore.exportToCSV(timesheetStore.enrichedEntries)
-    message.success('CSV exported successfully')
+    toast.success('CSV exported successfully')
   } catch {
-    message.error('Failed to export CSV')
+    toast.error('Failed to export CSV')
   }
 }
 
-
+const columns = computed<ColumnDef<TimeEntry & { project?: { name: string } }>[]>(() => [
+  {
+    accessorKey: 'date',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('timesheet.columns.date') as string }),
+    cell: ({ row }) => formatDate(row.getValue('date')),
+    sortingFn: (a, b) => dateOnlySortKey(a.original.date) - dateOnlySortKey(b.original.date),
+  },
+  {
+    accessorKey: 'project',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('timesheet.columns.project') as string }),
+    cell: ({ row }) => {
+      const project = row.original.project
+      const projectName = project?.name || t('timesheet.entry.noProject')
+      const projectColor = getProjectColor(row.original.projectId)
+      return h('div', { class: 'project-cell flex items-center gap-2' }, [
+        h('span', { class: 'project-dot w-2 h-2 rounded-full', style: { backgroundColor: projectColor } }),
+        h('span', {}, projectName)
+      ])
+    }
+  },
+  {
+    accessorKey: 'description',
+    header: t('timesheet.columns.task'),
+    cell: ({ row }) => row.original.description || '-'
+  },
+  {
+    accessorKey: 'billable',
+    header: t('timesheet.columns.status'),
+    cell: ({ row }) => {
+      const billable = row.original.billable
+      return h(Badge, {
+        variant: billable ? 'default' : 'secondary',
+        class: 'rounded-full px-2'
+      }, () => billable ? t('timesheet.entries.billable') : t('timesheet.entries.nonBillable'))
+    }
+  },
+  {
+    accessorKey: 'durationSeconds',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('timesheet.columns.hours') as string }),
+    cell: ({ row }) => h('div', { class: 'text-right' }, formatHours(row.original.durationSeconds))
+  },
+  {
+    id: 'billableAmount',
+    header: ({ column }) => h('div', { class: 'text-right' }, t('timesheet.columns.billable')),
+    cell: ({ row }) => {
+      if (!row.original.billable) return h('span', { class: 'text-muted-foreground block text-right' }, '-')
+      const rate = getProjectRate(row.original.projectId)
+      const hours = row.original.durationSeconds / 3600
+      const amount = (rate * hours).toFixed(2)
+      return h('span', { class: 'billable-amount block text-right font-medium text-primary' }, `$${amount}`)
+    }
+  },
+  {
+    id: 'actions',
+    enableHiding: false,
+    cell: ({ row }) => {
+      const entry = row.original
+      return h('div', { class: 'flex gap-1 justify-end' }, [
+        h(Button, {
+          variant: 'ghost',
+          size: 'icon',
+          class: 'h-8 w-8',
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation()
+            handleEdit(entry)
+          }
+        }, () => h(Edit, { class: 'w-4 h-4' })),
+        h(AlertDialog, {}, {
+          trigger: () => h(Button, {
+            variant: 'ghost',
+            size: 'icon',
+            class: 'h-8 w-8 text-destructive hover:text-destructive',
+          }, () => h(Trash2, { class: 'w-4 h-4' })),
+          default: () => h(AlertDialogContent, {}, {
+            default: () => [
+              h(AlertDialogHeader, {}, {
+                default: () => [
+                  h(AlertDialogTitle, {}, () => t('common.confirmDelete')),
+                  h(AlertDialogDescription, {}, () => t('timesheet.entry.deleteConfirm'))
+                ]
+              }),
+              h(AlertDialogFooter, {}, {
+                default: () => [
+                  h(AlertDialogCancel, {}, () => t('common.cancel')),
+                  h(AlertDialogAction, { onClick: () => handleDelete(entry.id) }, () => t('common.delete'))
+                ]
+              })
+            ]
+          })
+        })
+      ])
+    }
+  }
+])
 
 onMounted(() => {
   timesheetStore.fetchTimesheet()
@@ -243,48 +233,41 @@ onMounted(() => {
 
 
     <!-- Time Entries Section -->
-    <n-card class="entries-section" :bordered="true" size="small">
+    <Card class="entries-section">
       <!-- Section Header -->
-      <template #header>
-        <div class="section-header">
-          <n-text strong class="section-title">{{ t('timesheet.entries.title') }}</n-text>
-          <n-button quaternary size="small" @click="handleExportCSV">
-            <template #icon>
-              <Download class="w-4 h-4" />
-            </template>
+      <CardHeader>
+        <div class="section-header flex justify-between items-center">
+          <h3 class="text-lg font-semibold">{{ t('timesheet.entries.title') }}</h3>
+          <Button variant="ghost" size="sm" @click="handleExportCSV">
+            <Download class="w-4 h-4 mr-2" />
             {{ t('timesheet.entries.exportCSV') }}
-          </n-button>
+          </Button>
         </div>
-      </template>
+      </CardHeader>
 
-      <!-- Quick Entry Bar -->
-      <QuickTimeEntry :projects="projects" @submit="handleQuickEntry" />
+      <CardContent>
+        <!-- Quick Entry Bar -->
+        <QuickTimeEntry :projects="projects" @submit="handleQuickEntry" />
 
-      <!-- Data Table -->
-      <div v-if="loading" class="loading-state">
-        <n-text depth="3">{{ t('common.loading') }}</n-text>
-      </div>
+        <!-- Data Table -->
+        <div v-if="loading" class="loading-state mt-4 flex items-center justify-center p-4">
+          <Loader2 class="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
 
-      <div v-else-if="entries.length === 0" class="empty-state">
-        <n-empty :description="t('timesheet.noEntries')">
-          <template #icon>
-            <Clock class="w-12 h-12 text-muted-foreground" />
-          </template>
-          <template #extra>
-            <n-space vertical align="center">
-              <n-text depth="3">
-                {{ t('timesheet.noEntriesHint') }}
-              </n-text>
-            </n-space>
-          </template>
-        </n-empty>
-      </div>
+        <div v-else-if="entries.length === 0"
+          class="empty-state mt-4 flex flex-col items-center justify-center p-8 border rounded-lg bg-muted/20">
+          <Clock class="w-12 h-12 text-muted-foreground mb-4" />
+          <p class="text-muted-foreground">{{ t('timesheet.noEntries') }}</p>
+          <p class="text-xs text-muted-foreground mt-1">{{ t('timesheet.noEntriesHint') }}</p>
+        </div>
 
-      <template v-else>
-        <n-data-table :columns="columns" :data="enrichedEntries" :pagination="pagination"
-          :row-key="(row: TimeEntry) => row.id" size="small" class="entries-table" />
-      </template>
-    </n-card>
+        <template v-else>
+          <div class="rounded-md border mt-4 overflow-hidden">
+            <DataTable :columns="columns" :data="enrichedEntries" />
+          </div>
+        </template>
+      </CardContent>
+    </Card>
 
   </PageContainer>
 </template>

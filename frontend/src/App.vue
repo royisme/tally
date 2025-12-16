@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import AppProvider from '@/components/AppProvider.vue'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import UpdateDialog from '@/components/update/UpdateDialog.vue'
 import { useUpdateStore } from '@/stores/update'
 import { useBootstrapStore } from '@/stores/bootstrap'
 import { useAuthStore } from '@/stores/auth'
+import { Toaster } from '@/components/ui/sonner'
+import { useAppStore } from '@/stores/app'
+import { useI18n } from 'vue-i18n'
+import { applyThemeToRoot } from '@/theme/tokens'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,6 +18,28 @@ const isAuthLayout = computed(() => route.meta.layout === 'auth')
 const updateStore = useUpdateStore()
 const bootstrapStore = useBootstrapStore()
 const authStore = useAuthStore()
+const appStore = useAppStore()
+const { locale } = useI18n()
+
+// Theme Configuration
+watch(
+  () => appStore.theme,
+  (newTheme) => {
+    applyThemeToRoot(newTheme)
+  },
+  { immediate: true }
+)
+
+// Watch for locale changes to update vue-i18n
+watch(
+  () => appStore.locale,
+  (newLocale) => {
+    if (newLocale !== locale.value) {
+      locale.value = newLocale
+    }
+  },
+  { immediate: true }
+)
 
 function restoreLastRouteIfNeeded() {
   if (!authStore.isAuthenticated) return
@@ -60,9 +85,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppProvider>
+  <div class="h-full">
     <AuthLayout v-if="isAuthLayout" />
     <MainLayout v-else />
     <UpdateDialog />
-  </AppProvider>
+    <Toaster />
+  </div>
 </template>

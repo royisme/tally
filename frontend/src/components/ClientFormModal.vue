@@ -1,9 +1,37 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { NModal, NForm, NFormItem, NInput, NSelect, NButton, NSpace, NTabs, NTabPane, useMessage } from 'naive-ui'
-import type { Client } from '@/types'
-import type { FormInst } from 'naive-ui'
+import { watch } from 'vue'
+import { useForm } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
 import { useI18n } from 'vue-i18n'
+import { z } from 'zod'
+import type { Client } from '@/types'
+import { clientSchema } from '@/schemas/client'
+
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Props {
   show: boolean
@@ -17,47 +45,20 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
-const message = useMessage()
 const { t } = useI18n()
 
-const formRef = ref<FormInst | null>(null)
-const activeTab = ref('basic')
-
 // Extended with billing fields
-type ClientFormData = Omit<Client, 'id'> & {
-  billingCompany: string
-  billingAddress: string
-  billingCity: string
-  billingProvince: string
-  billingPostalCode: string
-}
+const formSchema = toTypedSchema(clientSchema.extend({
+  billingCompany: z.string().optional(),
+  billingAddress: z.string().optional(),
+  billingCity: z.string().optional(),
+  billingProvince: z.string().optional(),
+  billingPostalCode: z.string().optional(),
+}))
 
-const formValue = ref<ClientFormData>({
-  name: '',
-  email: '',
-  website: '',
-  avatar: '',
-  contactPerson: '',
-  address: '',
-  currency: 'USD',
-  status: 'active',
-  notes: '',
-  billingCompany: '',
-  billingAddress: '',
-  billingCity: '',
-  billingProvince: '',
-  billingPostalCode: ''
+const form = useForm({
+  validationSchema: formSchema,
 })
-
-import { clientSchema } from '@/schemas/client'
-import { useZodRule } from '@/utils/validation'
-
-const rules = {
-  name: useZodRule(clientSchema.shape.name),
-  email: useZodRule(clientSchema.shape.email),
-  currency: useZodRule(clientSchema.shape.currency),
-  status: useZodRule(clientSchema.shape.status)
-}
 
 const currencyOptions = [
   { label: 'USD - US Dollar', value: 'USD' },
@@ -74,7 +75,7 @@ const statusOptions = [
 // Watch for client changes to populate form
 watch(() => props.client, (newClient) => {
   if (newClient) {
-    formValue.value = {
+    form.setValues({
       name: newClient.name,
       email: newClient.email,
       website: newClient.website || '',
@@ -82,156 +83,230 @@ watch(() => props.client, (newClient) => {
       contactPerson: newClient.contactPerson || '',
       address: newClient.address || '',
       currency: newClient.currency,
-      status: newClient.status,
+      status: newClient.status as "active" | "inactive",
       notes: newClient.notes || '',
       billingCompany: newClient.billingCompany || '',
       billingAddress: newClient.billingAddress || '',
       billingCity: newClient.billingCity || '',
       billingProvince: newClient.billingProvince || '',
       billingPostalCode: newClient.billingPostalCode || ''
-    }
+    })
   } else {
-    // Reset for new client
-    formValue.value = {
-      name: '',
-      email: '',
-      website: '',
-      avatar: '',
-      contactPerson: '',
-      address: '',
-      currency: 'USD',
-      status: 'active',
-      notes: '',
-      billingCompany: '',
-      billingAddress: '',
-      billingCity: '',
-      billingProvince: '',
-      billingPostalCode: ''
-    }
+    form.resetForm({
+      values: {
+        name: '',
+        email: '',
+        currency: 'USD',
+        status: 'active',
+      }
+    })
   }
-  activeTab.value = 'basic'
 }, { immediate: true })
-
-function handleClose() {
-  emit('update:show', false)
-}
 
 function handleUpdateShow(value: boolean) {
   emit('update:show', value)
 }
 
-function handleSubmit() {
-  formRef.value?.validate((errors) => {
-    if (!errors) {
-      if (props.client) {
-        // Update existing
-        emit('submit', { ...formValue.value, id: props.client.id } as Client)
-      } else {
-        // Create new
-        emit('submit', formValue.value)
-      }
-      handleClose()
-    } else {
-      message.error(t('form.saveError') || 'Please fix form errors')
-    }
-  })
-}
+const onSubmit = form.handleSubmit((values) => {
+  if (props.client) {
+    emit('submit', { ...values, id: props.client.id } as Client)
+  } else {
+    emit('submit', values as unknown as Client)
+  }
+  handleUpdateShow(false)
+})
 </script>
 
 <template>
-  <n-modal :show="show" @update:show="handleUpdateShow" preset="card" :style="{ width: '600px' }"
-    :title="client ? t('clients.editClient') : t('clients.newClient')">
-    <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top"
-      require-mark-placement="right-hanging">
-      <n-tabs v-model:value="activeTab" type="line" animated>
-        <!-- Tab 1: Basic Info -->
-        <n-tab-pane name="basic" :tab="t('form.client.tabs.basic')">
-          <n-space vertical :size="0" style="padding-top: 12px;">
-            <n-space style="width: 100%">
-              <n-form-item :label="t('form.client.name')" path="name" style="flex: 1; min-width: 240px;">
-                <n-input v-model:value="formValue.name" :placeholder="t('form.client.namePlaceholder')" />
-              </n-form-item>
-              <n-form-item :label="t('form.client.contactPerson')" path="contactPerson"
-                style="flex: 1; min-width: 240px;">
-                <n-input v-model:value="formValue.contactPerson"
-                  :placeholder="t('form.client.contactPersonPlaceholder')" />
-              </n-form-item>
-            </n-space>
+  <Dialog :open="show" @update:open="handleUpdateShow">
+    <DialogContent class="sm:max-w-[600px]">
+      <DialogHeader>
+        <DialogTitle>{{ client ? t('clients.editClient') : t('clients.newClient') }}</DialogTitle>
+      </DialogHeader>
 
-            <n-space style="width: 100%">
-              <n-form-item :label="t('form.client.email')" path="email" style="flex: 1; min-width: 240px;">
-                <n-input v-model:value="formValue.email" :placeholder="t('form.client.emailPlaceholder')" />
-              </n-form-item>
-              <n-form-item :label="t('form.client.website')" path="website" style="flex: 1; min-width: 240px;">
-                <n-input v-model:value="formValue.website" :placeholder="t('form.client.websitePlaceholder')" />
-              </n-form-item>
-            </n-space>
-          </n-space>
-        </n-tab-pane>
+      <form @submit="onSubmit" class="space-y-4">
+        <Tabs defaultValue="basic" class="w-full">
+          <TabsList class="grid w-full grid-cols-3">
+            <TabsTrigger value="basic">{{ t('form.client.tabs.basic') }}</TabsTrigger>
+            <TabsTrigger value="address">{{ t('form.client.tabs.address') }}</TabsTrigger>
+            <TabsTrigger value="settings">{{ t('form.client.tabs.settings') }}</TabsTrigger>
+          </TabsList>
 
-        <!-- Tab 2: Address & Billing -->
-        <n-tab-pane name="address" :tab="t('form.client.tabs.address')">
-          <n-space vertical :size="0" style="padding-top: 12px;">
-            <n-form-item :label="t('form.client.address')" path="address">
-              <n-input v-model:value="formValue.address" type="textarea"
-                :placeholder="t('form.client.addressPlaceholder')" :rows="2" />
-            </n-form-item>
+          <!-- Tab 1: Basic Info -->
+          <TabsContent value="basic" class="space-y-4 pt-4">
+            <div class="grid grid-cols-2 gap-4">
+              <FormField v-slot="{ componentField }" name="name">
+                <FormItem>
+                  <FormLabel>{{ t('form.client.name') }}</FormLabel>
+                  <FormControl>
+                    <Input v-bind="componentField" :placeholder="t('form.client.namePlaceholder')" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
 
-            <n-form-item :label="t('form.client.billingCompany')" path="billingCompany">
-              <n-input v-model:value="formValue.billingCompany"
-                :placeholder="t('form.client.billingCompanyPlaceholder')" />
-            </n-form-item>
+              <FormField v-slot="{ componentField }" name="contactPerson">
+                <FormItem>
+                  <FormLabel>{{ t('form.client.contactPerson') }}</FormLabel>
+                  <FormControl>
+                    <Input v-bind="componentField" :placeholder="t('form.client.contactPersonPlaceholder')" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+            </div>
 
-            <n-form-item :label="t('form.client.billingAddress')" path="billingAddress">
-              <n-input v-model:value="formValue.billingAddress"
-                :placeholder="t('form.client.billingAddressPlaceholder')" />
-            </n-form-item>
+            <div class="grid grid-cols-2 gap-4">
+              <FormField v-slot="{ componentField }" name="email">
+                <FormItem>
+                  <FormLabel>{{ t('form.client.email') }}</FormLabel>
+                  <FormControl>
+                    <Input v-bind="componentField" :placeholder="t('form.client.emailPlaceholder')" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
 
-            <n-space style="width: 100%">
-              <n-form-item :label="t('form.client.billingCity')" path="billingCity" style="flex: 2;">
-                <n-input v-model:value="formValue.billingCity" :placeholder="t('form.client.billingCityPlaceholder')" />
-              </n-form-item>
-              <n-form-item :label="t('form.client.billingProvince')" path="billingProvince" style="flex: 1;">
-                <n-input v-model:value="formValue.billingProvince"
-                  :placeholder="t('form.client.billingProvincePlaceholder')" />
-              </n-form-item>
-              <n-form-item :label="t('form.client.billingPostalCode')" path="billingPostalCode" style="flex: 1;">
-                <n-input v-model:value="formValue.billingPostalCode"
-                  :placeholder="t('form.client.billingPostalCodePlaceholder')" />
-              </n-form-item>
-            </n-space>
-          </n-space>
-        </n-tab-pane>
+              <FormField v-slot="{ componentField }" name="website">
+                <FormItem>
+                  <FormLabel>{{ t('form.client.website') }}</FormLabel>
+                  <FormControl>
+                    <Input v-bind="componentField" :placeholder="t('form.client.websitePlaceholder')" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+            </div>
+          </TabsContent>
 
-        <!-- Tab 3: Other Settings -->
-        <n-tab-pane name="settings" :tab="t('form.client.tabs.settings')">
-          <n-space vertical :size="0" style="padding-top: 12px;">
-            <n-space>
-              <n-form-item :label="t('form.client.currency')" path="currency" style="flex: 1; min-width: 150px;">
-                <n-select v-model:value="formValue.currency" :options="currencyOptions" />
-              </n-form-item>
+          <!-- Tab 2: Address & Billing -->
+          <TabsContent value="address" class="space-y-4 pt-4">
+            <FormField v-slot="{ componentField }" name="address">
+              <FormItem>
+                <FormLabel>{{ t('form.client.address') }}</FormLabel>
+                <FormControl>
+                  <Textarea v-bind="componentField" :placeholder="t('form.client.addressPlaceholder')" rows="2" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
 
-              <n-form-item :label="t('form.client.status')" path="status" style="flex: 1; min-width: 150px;">
-                <n-select v-model:value="formValue.status" :options="statusOptions" />
-              </n-form-item>
-            </n-space>
+            <FormField v-slot="{ componentField }" name="billingCompany">
+              <FormItem>
+                <FormLabel>{{ t('form.client.billingCompany') }}</FormLabel>
+                <FormControl>
+                  <Input v-bind="componentField" :placeholder="t('form.client.billingCompanyPlaceholder')" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
 
-            <n-form-item :label="t('form.client.notes')" path="notes">
-              <n-input v-model:value="formValue.notes" type="textarea" :placeholder="t('form.client.notesPlaceholder')"
-                :rows="3" />
-            </n-form-item>
-          </n-space>
-        </n-tab-pane>
-      </n-tabs>
-    </n-form>
+            <FormField v-slot="{ componentField }" name="billingAddress">
+              <FormItem>
+                <FormLabel>{{ t('form.client.billingAddress') }}</FormLabel>
+                <FormControl>
+                  <Input v-bind="componentField" :placeholder="t('form.client.billingAddressPlaceholder')" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
 
-    <template #footer>
-      <n-space justify="end">
-        <n-button @click="handleClose">{{ t('form.cancel') }}</n-button>
-        <n-button type="primary" @click="handleSubmit">
-          {{ client ? t('form.update') : t('form.create') }}
-        </n-button>
-      </n-space>
-    </template>
-  </n-modal>
+            <div class="grid grid-cols-4 gap-4">
+              <FormField v-slot="{ componentField }" name="billingCity">
+                <FormItem class="col-span-2">
+                  <FormLabel>{{ t('form.client.billingCity') }}</FormLabel>
+                  <FormControl>
+                    <Input v-bind="componentField" :placeholder="t('form.client.billingCityPlaceholder')" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+
+              <FormField v-slot="{ componentField }" name="billingProvince">
+                <FormItem>
+                  <FormLabel>{{ t('form.client.billingProvince') }}</FormLabel>
+                  <FormControl>
+                    <Input v-bind="componentField" :placeholder="t('form.client.billingProvincePlaceholder')" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+
+              <FormField v-slot="{ componentField }" name="billingPostalCode">
+                <FormItem>
+                  <FormLabel>{{ t('form.client.billingPostalCode') }}</FormLabel>
+                  <FormControl>
+                    <Input v-bind="componentField" :placeholder="t('form.client.billingPostalCodePlaceholder')" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+            </div>
+          </TabsContent>
+
+          <!-- Tab 3: Other Settings -->
+          <TabsContent value="settings" class="space-y-4 pt-4">
+            <div class="grid grid-cols-2 gap-4">
+              <FormField v-slot="{ componentField }" name="currency">
+                <FormItem>
+                  <FormLabel>{{ t('form.client.currency') }}</FormLabel>
+                  <Select v-bind="componentField">
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem v-for="option in currencyOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+
+              <FormField v-slot="{ componentField }" name="status">
+                <FormItem>
+                  <FormLabel>{{ t('form.client.status') }}</FormLabel>
+                  <Select v-bind="componentField">
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem v-for="option in statusOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+            </div>
+
+            <FormField v-slot="{ componentField }" name="notes">
+              <FormItem>
+                <FormLabel>{{ t('form.client.notes') }}</FormLabel>
+                <FormControl>
+                  <Textarea v-bind="componentField" :placeholder="t('form.client.notesPlaceholder')" rows="3" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter>
+          <Button variant="outline" type="button" @click="handleUpdateShow(false)">
+            {{ t('form.cancel') }}
+          </Button>
+          <Button type="submit">
+            {{ client ? t('form.update') : t('form.create') }}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
 </template>

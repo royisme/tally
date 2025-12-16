@@ -1,50 +1,56 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from "vue";
-import {
-  NForm,
-  NFormItem,
-  NInput,
-  NSpace,
-  NButton,
-  useMessage,
-  NTabs,
-  NTabPane,
-  NSwitch,
-  NSelect,
-  NAlert,
-  NGrid,
-  NFormItemGi,
-} from "naive-ui";
-import { useSettingsStore } from "@/stores/settings";
-import type { UserSettings } from "@/types";
+import { useForm } from "vee-validate";
+import { toTypedSchema } from "@vee-validate/zod";
 import { useI18n } from "vue-i18n";
+import { toast } from "vue-sonner";
+import { AlertCircle, Info } from "lucide-vue-next";
+
+import { useSettingsStore } from "@/stores/settings";
+import { invoiceSettingsSchema } from "@/schemas/settings";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from '@/components/ui/form';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const settingsStore = useSettingsStore();
-const message = useMessage();
 const { t } = useI18n();
-
-const form = ref<UserSettings>({
-  currency: "USD",
-  defaultTaxRate: 0,
-  language: "en-US",
-  theme: "light",
-  dateFormat: "2006-01-02",
-  timezone: "UTC",
-  senderName: "",
-  senderCompany: "",
-  senderAddress: "",
-  senderPhone: "",
-  senderEmail: "",
-  senderPostalCode: "",
-  invoiceTerms: "",
-  defaultMessageTemplate: "",
-  hstRegistered: false,
-  hstNumber: "",
-  taxEnabled: false,
-  expectedIncome: "",
-});
-
 const saving = ref(false);
+
+const formSchema = toTypedSchema(invoiceSettingsSchema);
+const form = useForm({
+  validationSchema: formSchema,
+  keepValuesOnUnmount: true,
+});
 
 const expectedIncomeOptions = computed(() => [
   { label: t("settings.invoice.hst.incomeOptions.under30k"), value: "under30k" },
@@ -55,167 +61,260 @@ const expectedIncomeOptions = computed(() => [
 onMounted(async () => {
   await settingsStore.fetchSettings();
   if (settingsStore.settings) {
-    const settings = settingsStore.settings;
-    form.value = {
-      ...form.value,
-      invoiceTerms: settings.invoiceTerms,
-      defaultMessageTemplate: settings.defaultMessageTemplate,
-      senderName: settings.senderName,
-      senderCompany: settings.senderCompany,
-      senderAddress: settings.senderAddress,
-      senderPhone: settings.senderPhone,
-      senderEmail: settings.senderEmail,
-      senderPostalCode: settings.senderPostalCode,
-      hstRegistered: settings.hstRegistered,
-      hstNumber: settings.hstNumber,
-      taxEnabled: settings.taxEnabled,
-      expectedIncome: settings.expectedIncome,
-    };
+    const s = settingsStore.settings;
+    form.setValues({
+      invoiceTerms: s.invoiceTerms,
+      defaultMessageTemplate: s.defaultMessageTemplate,
+      senderName: s.senderName,
+      senderCompany: s.senderCompany,
+      senderAddress: s.senderAddress,
+      senderPhone: s.senderPhone,
+      senderEmail: s.senderEmail,
+      senderPostalCode: s.senderPostalCode,
+      hstRegistered: s.hstRegistered,
+      hstNumber: s.hstNumber,
+      taxEnabled: s.taxEnabled,
+      expectedIncome: s.expectedIncome,
+    });
   } else {
-    form.value = {
-      ...form.value,
+    form.setValues({
       invoiceTerms: t("settings.invoice.defaults.invoiceTerms"),
       defaultMessageTemplate: t("settings.invoice.defaults.defaultMessageTemplate"),
-    };
+      hstRegistered: false,
+      taxEnabled: false,
+    });
   }
 });
 
-async function handleSave() {
+const onSubmit = form.handleSubmit(async (values) => {
   saving.value = true;
   try {
     const currentSettings = settingsStore.settings;
     if (!currentSettings) {
-      message.error(t("settings.invoice.messages.loadError"));
+      toast.error(t("settings.invoice.messages.loadError"));
       return;
     }
     const updatedSettings = {
       ...currentSettings,
-      invoiceTerms: form.value.invoiceTerms,
-      defaultMessageTemplate: form.value.defaultMessageTemplate,
-      senderName: form.value.senderName,
-      senderCompany: form.value.senderCompany,
-      senderAddress: form.value.senderAddress,
-      senderPhone: form.value.senderPhone,
-      senderEmail: form.value.senderEmail,
-      senderPostalCode: form.value.senderPostalCode,
-      hstRegistered: form.value.hstRegistered,
-      hstNumber: form.value.hstNumber,
-      taxEnabled: form.value.taxEnabled,
-      expectedIncome: form.value.expectedIncome,
+      ...values,
     };
     await settingsStore.saveSettings(updatedSettings);
-    message.success(t("settings.invoice.messages.saved"));
+    toast.success(t("settings.invoice.messages.saved"));
   } catch (e) {
-    message.error(e instanceof Error ? e.message : t("settings.invoice.messages.saveError"));
+    toast.error(e instanceof Error ? e.message : t("settings.invoice.messages.saveError"));
   } finally {
     saving.value = false;
   }
-}
+});
 </script>
 
 <template>
-  <div class="invoice-settings">
-    <NTabs type="line" animated>
-      <!-- Defaults Tab -->
-      <NTabPane name="defaults" :tab="t('settings.invoice.defaultsCardTitle')">
-        <NForm ref="formRef" label-placement="top">
-          <NFormItem :label="t('settings.invoice.fields.invoiceTerms')">
-            <NInput type="textarea" v-model:value="form.invoiceTerms" :autosize="{ minRows: 2, maxRows: 4 }"
-              :disabled="saving" />
-          </NFormItem>
+  <div class="invoice-settings w-full">
+    <form @submit="onSubmit" class="space-y-6">
+      <Tabs default-value="defaults" class="w-full">
+        <TabsList class="grid w-full grid-cols-3">
+          <TabsTrigger value="defaults">{{ t('settings.invoice.defaultsCardTitle') }}</TabsTrigger>
+          <TabsTrigger value="sender">{{ t('settings.invoice.headerCardTitle') }}</TabsTrigger>
+          <TabsTrigger value="tax">{{ t('settings.invoice.hst.cardTitle') }}</TabsTrigger>
+        </TabsList>
 
-          <NFormItem :label="t('settings.invoice.fields.defaultMessageTemplate')">
-            <NInput type="textarea" v-model:value="form.defaultMessageTemplate" :autosize="{ minRows: 3, maxRows: 6 }"
-              :disabled="saving" />
-          </NFormItem>
+        <!-- Defaults Tab -->
+        <TabsContent value="defaults">
+          <Card>
+            <CardHeader>
+              <CardTitle>{{ t('settings.invoice.defaultsCardTitle') }}</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-4">
+              <FormField v-slot="{ componentField }" name="invoiceTerms">
+                <FormItem>
+                  <FormLabel>{{ t('settings.invoice.fields.invoiceTerms') }}</FormLabel>
+                  <FormControl>
+                    <Textarea v-bind="componentField" :rows="3" :disabled="saving" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
 
-          <NSpace justify="end" style="margin-top: 24px">
-            <NButton type="primary" :loading="saving" @click="handleSave">
-              {{ t("common.save") }}
-            </NButton>
-          </NSpace>
-        </NForm>
-      </NTabPane>
+              <FormField v-slot="{ componentField }" name="defaultMessageTemplate">
+                <FormItem>
+                  <FormLabel>{{ t('settings.invoice.fields.defaultMessageTemplate') }}</FormLabel>
+                  <FormControl>
+                    <Textarea v-bind="componentField" :rows="4" :disabled="saving" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <!-- Sender Info Tab -->
-      <NTabPane name="sender" :tab="t('settings.invoice.headerCardTitle')">
-        <NForm label-placement="top">
-          <NGrid :cols="2" :x-gap="24" :y-gap="0">
-            <NFormItemGi :label="t('settings.invoice.fields.senderName')">
-              <NInput v-model:value="form.senderName" :disabled="saving" />
-            </NFormItemGi>
-            <NFormItemGi :label="t('settings.invoice.fields.senderCompany')">
-              <NInput v-model:value="form.senderCompany" :disabled="saving" />
-            </NFormItemGi>
-            <NFormItemGi :label="t('settings.invoice.fields.senderAddress')">
-              <NInput v-model:value="form.senderAddress" :disabled="saving" />
-            </NFormItemGi>
-            <NFormItemGi :label="t('settings.invoice.fields.senderPostalCode')">
-              <NInput v-model:value="form.senderPostalCode" :disabled="saving" />
-            </NFormItemGi>
-            <NFormItemGi :label="t('settings.invoice.fields.senderPhone')">
-              <NInput v-model:value="form.senderPhone" :disabled="saving" />
-            </NFormItemGi>
-            <NFormItemGi :label="t('settings.invoice.fields.senderEmail')">
-              <NInput v-model:value="form.senderEmail" :disabled="saving" />
-            </NFormItemGi>
-          </NGrid>
+        <!-- Sender Info Tab -->
+        <TabsContent value="sender">
+          <Card>
+            <CardHeader>
+              <CardTitle>{{ t('settings.invoice.headerCardTitle') }}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField v-slot="{ componentField }" name="senderName">
+                  <FormItem>
+                    <FormLabel>{{ t('settings.invoice.fields.senderName') }}</FormLabel>
+                    <FormControl>
+                      <Input v-bind="componentField" :disabled="saving" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
+                <FormField v-slot="{ componentField }" name="senderCompany">
+                  <FormItem>
+                    <FormLabel>{{ t('settings.invoice.fields.senderCompany') }}</FormLabel>
+                    <FormControl>
+                      <Input v-bind="componentField" :disabled="saving" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
+                <FormField v-slot="{ componentField }" name="senderAddress">
+                  <FormItem>
+                    <FormLabel>{{ t('settings.invoice.fields.senderAddress') }}</FormLabel>
+                    <FormControl>
+                      <Input v-bind="componentField" :disabled="saving" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
+                <FormField v-slot="{ componentField }" name="senderPostalCode">
+                  <FormItem>
+                    <FormLabel>{{ t('settings.invoice.fields.senderPostalCode') }}</FormLabel>
+                    <FormControl>
+                      <Input v-bind="componentField" :disabled="saving" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
+                <FormField v-slot="{ componentField }" name="senderPhone">
+                  <FormItem>
+                    <FormLabel>{{ t('settings.invoice.fields.senderPhone') }}</FormLabel>
+                    <FormControl>
+                      <Input v-bind="componentField" :disabled="saving" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
+                <FormField v-slot="{ componentField }" name="senderEmail">
+                  <FormItem>
+                    <FormLabel>{{ t('settings.invoice.fields.senderEmail') }}</FormLabel>
+                    <FormControl>
+                      <Input v-bind="componentField" :disabled="saving" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <NSpace justify="end" style="margin-top: 24px">
-            <NButton type="primary" :loading="saving" @click="handleSave">
-              {{ t("common.save") }}
-            </NButton>
-          </NSpace>
-        </NForm>
-      </NTabPane>
+        <!-- Tax / HST Tab -->
+        <TabsContent value="tax">
+          <Card>
+            <CardHeader>
+              <CardTitle>{{ t('settings.invoice.hst.cardTitle') }}</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-6">
+              <Alert v-if="!form.values.hstRegistered" variant="default"
+                class="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-900 text-blue-800 dark:text-blue-300">
+                <Info class="h-4 w-4" />
+                <AlertTitle class="ml-2">Note</AlertTitle>
+                <AlertDescription class="ml-2">
+                  {{ t('settings.invoice.hst.info.notRegistered') }}
+                </AlertDescription>
+              </Alert>
+              <Alert v-else variant="default"
+                class="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300">
+                <AlertCircle class="h-4 w-4" />
+                <AlertTitle class="ml-2">Registered</AlertTitle>
+                <AlertDescription class="ml-2">
+                  {{ t('settings.invoice.hst.info.registered') }}
+                </AlertDescription>
+              </Alert>
 
-      <!-- Tax / HST Tab -->
-      <NTabPane name="tax" :tab="t('settings.invoice.hst.cardTitle')">
-        <NForm label-placement="top">
-          <NAlert v-if="!form.hstRegistered" type="info" :show-icon="true" style="margin-bottom: 16px">
-            {{ t('settings.invoice.hst.info.notRegistered') }}
-          </NAlert>
-          <NAlert v-else type="warning" :show-icon="true" style="margin-bottom: 16px">
-            {{ t('settings.invoice.hst.info.registered') }}
-          </NAlert>
+              <FormField v-slot="{ value, handleChange }" name="hstRegistered">
+                <FormItem class="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div class="space-y-0.5">
+                    <FormLabel class="text-base">{{ t('settings.invoice.hst.registered') }}</FormLabel>
+                    <FormDescription>
+                      {{ t('settings.invoice.hst.registeredHint') }}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch :checked="value" @update:checked="handleChange" :disabled="saving" />
+                  </FormControl>
+                </FormItem>
+              </FormField>
 
-          <NFormItem :label="t('settings.invoice.hst.registered')">
-            <NSwitch v-model:value="form.hstRegistered" :disabled="saving" />
-            <span style="margin-left: 12px; color: #666; font-size: 13px;">
-              {{ t('settings.invoice.hst.registeredHint') }}
-            </span>
-          </NFormItem>
+              <div v-if="form.values.hstRegistered" class="space-y-4 border-l-2 pl-4 ml-2">
+                <FormField v-slot="{ componentField }" name="hstNumber">
+                  <FormItem>
+                    <FormLabel>{{ t('settings.invoice.hst.number') }}</FormLabel>
+                    <FormControl>
+                      <Input v-bind="componentField" :placeholder="t('settings.invoice.hst.numberPlaceholder')"
+                        :disabled="saving" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
 
-          <NFormItem v-if="form.hstRegistered" :label="t('settings.invoice.hst.number')">
-            <NInput v-model:value="form.hstNumber" :placeholder="t('settings.invoice.hst.numberPlaceholder')"
-              :disabled="saving" />
-          </NFormItem>
+                <FormField v-slot="{ componentField }" name="expectedIncome">
+                  <FormItem>
+                    <FormLabel>{{ t('settings.invoice.hst.expectedIncome') }}</FormLabel>
+                    <Select v-bind="componentField">
+                      <FormControl>
+                        <SelectTrigger :disabled="saving">
+                          <SelectValue :placeholder="t('settings.invoice.hst.expectedIncomePlaceholder')" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem v-for="opt in expectedIncomeOptions" :key="opt.value" :value="opt.value">
+                          {{ opt.label }}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
 
-          <NFormItem :label="t('settings.invoice.hst.expectedIncome')">
-            <NSelect v-model:value="form.expectedIncome" :options="expectedIncomeOptions"
-              :placeholder="t('settings.invoice.hst.expectedIncomePlaceholder')" clearable :disabled="saving" />
-          </NFormItem>
+                <FormField v-slot="{ value, handleChange }" name="taxEnabled">
+                  <FormItem class="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div class="space-y-0.5">
+                      <FormLabel class="text-base">{{ t('settings.invoice.hst.taxEnabled') }}</FormLabel>
+                      <FormDescription>
+                        {{ t('settings.invoice.hst.taxEnabledHint') }}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch :checked="value" @update:checked="handleChange"
+                        :disabled="saving || !form.values.hstRegistered" />
+                    </FormControl>
+                  </FormItem>
+                </FormField>
+              </div>
 
-          <NFormItem :label="t('settings.invoice.hst.taxEnabled')">
-            <NSwitch v-model:value="form.taxEnabled" :disabled="saving || !form.hstRegistered" />
-            <span style="margin-left: 12px; color: #666; font-size: 13px;">
-              {{ t('settings.invoice.hst.taxEnabledHint') }}
-            </span>
-          </NFormItem>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-          <NSpace justify="end" style="margin-top: 24px">
-            <NButton type="primary" :loading="saving" @click="handleSave">
-              {{ t("common.save") }}
-            </NButton>
-          </NSpace>
-        </NForm>
-      </NTabPane>
-    </NTabs>
+      <div class="flex justify-end pt-4">
+        <Button type="submit" :disabled="saving">
+          <span v-if="saving">Saving...</span>
+          <span v-else>{{ t("common.save") }}</span>
+        </Button>
+      </div>
+    </form>
   </div>
 </template>
 
 <style scoped>
-.invoice-settings {
-  width: 100%;
-}
+/* No scoped styles needed */
 </style>

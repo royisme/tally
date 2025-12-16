@@ -1,9 +1,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { NInput, NSelect, NButton, NSpace, NText, useMessage } from 'naive-ui'
 import { PlayCircle, PauseCircle, XCircle } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { toast } from 'vue-sonner'
 import type { Project } from '@/types'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
 
 interface Props {
     projects: Project[]
@@ -15,7 +25,6 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
-const message = useMessage()
 const { t } = useI18n()
 
 // Timer State
@@ -93,7 +102,7 @@ function stopInterval() {
 // Actions
 function handleStart() {
     if (!projectId.value) {
-        message.warning(t('timesheet.timer.selectProjectFirst'))
+        toast.warning(t('timesheet.timer.selectProjectFirst'))
         return
     }
 
@@ -123,7 +132,7 @@ function handleStop() {
     projectId.value = null
     saveToStorage()
 
-    message.success(t('timesheet.timer.loggedMsg'))
+    toast.success(t('timesheet.timer.loggedMsg'))
 }
 
 function handleDiscard() {
@@ -134,7 +143,7 @@ function handleDiscard() {
     description.value = ''
     projectId.value = null
     saveToStorage()
-    message.info(t('timesheet.timer.discardedMsg'))
+    toast.info(t('timesheet.timer.discardedMsg'))
 }
 
 // Lifecycle
@@ -155,120 +164,64 @@ watch([description, projectId], () => {
 </script>
 
 <template>
-    <div class="time-tracker" :class="{ 'is-running': isRunning }">
-        <div class="tracker-content">
+    <div class="rounded-2xl p-4 mb-6 border transition-all duration-300 shadow-sm" :class="[
+        isRunning
+            ? 'border-primary shadow-lg shadow-primary/15 bg-linear-to-r from-card to-primary/5'
+            : 'border-border bg-linear-to-r from-card to-primary/5'
+    ]">
+        <div class="flex items-center gap-3">
             <!-- Description Input -->
-            <n-input v-model:value="description" :placeholder="t('timesheet.timer.placeholder')"
-                class="description-input" :disabled="isRunning && elapsedSeconds > 0" />
+            <Input v-model="description" :placeholder="t('timesheet.timer.placeholder')" class="flex-1 min-w-[200px]"
+                :disabled="isRunning && elapsedSeconds > 0" />
 
             <!-- Project Selector -->
-            <n-select v-model:value="projectId" :options="projectOptions"
-                :placeholder="t('timesheet.timer.selectProject')" class="project-select"
-                :disabled="isRunning && elapsedSeconds > 0" filterable />
+            <Select :model-value="projectId?.toString()" @update:model-value="(v) => projectId = Number(v)"
+                :disabled="isRunning && elapsedSeconds > 0">
+                <SelectTrigger class="w-[180px]">
+                    <SelectValue :placeholder="t('timesheet.timer.selectProject')" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem v-for="p in projectOptions" :key="p.value" :value="p.value.toString()">
+                        {{ p.label }}
+                    </SelectItem>
+                </SelectContent>
+            </Select>
 
             <!-- Timer Display -->
-            <div class="timer-display" :class="{ 'running': isRunning }">
-                <n-text strong>{{ formattedTime }}</n-text>
+            <div class="min-w-[100px] text-center font-mono text-xl px-4 py-2 rounded-lg transition-all duration-300 relative overflow-hidden group"
+                :class="[
+                    isRunning
+                        ? 'bg-primary text-primary-foreground animate-pulse'
+                        : 'bg-muted'
+                ]">
+                <div :class="[
+                    'absolute inset-0 opacity-10 transition-opacity duration-1000',
+                    isRunning ? 'bg-linear-to-r from-primary/20 via-primary/10 to-primary/20 animate-pulse' : 'opacity-0'
+                ]" />
+                <div :class="[
+                    'absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer',
+                    isRunning ? 'hidden' : 'block'
+                ]" />
+                <span class="font-bold relative z-10">{{ formattedTime }}</span>
             </div>
 
             <!-- Actions -->
-            <n-space :size="8">
-                <n-button v-if="!isRunning" type="primary" circle size="large" @click="handleStart">
-                    <template #icon>
-                        <PlayCircle class="w-6 h-6" />
-                    </template>
-                </n-button>
+            <div class="flex items-center gap-2">
+                <Button v-if="!isRunning" size="icon" class="size-12 rounded-full" @click="handleStart">
+                    <PlayCircle class="size-6" />
+                </Button>
 
                 <template v-else>
-                    <n-button type="error" circle size="large" @click="handleStop">
-                        <template #icon>
-                            <PauseCircle class="w-6 h-6" />
-                        </template>
-                    </n-button>
+                    <Button variant="destructive" size="icon" class="size-12 rounded-full" @click="handleStop">
+                        <PauseCircle class="size-6" />
+                    </Button>
 
-                    <n-button quaternary circle size="small" @click="handleDiscard"
-                        :title="t('timesheet.timer.discard')">
-                        <template #icon>
-                            <XCircle class="w-5 h-5" />
-                        </template>
-                    </n-button>
+                    <Button variant="ghost" size="icon" class="size-8 rounded-full"
+                        :title="t('timesheet.timer.discard')" @click="handleDiscard">
+                        <XCircle class="size-5" />
+                    </Button>
                 </template>
-            </n-space>
+            </div>
         </div>
     </div>
 </template>
-
-<style scoped>
-.time-tracker {
-    background: linear-gradient(135deg, var(--n-card-color) 0%, rgba(var(--n-primary-color-rgb), 0.05) 100%);
-    border: 1px solid var(--n-border-color);
-    border-radius: 16px;
-    padding: 16px 20px;
-    margin-bottom: 24px;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.time-tracker.is-running {
-    border-color: var(--n-primary-color);
-    box-shadow: 0 4px 16px rgba(var(--n-primary-color-rgb), 0.15);
-}
-
-.tracker-content {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.description-input {
-    flex: 1;
-    min-width: 200px;
-}
-
-.project-select {
-    width: 180px;
-}
-
-.timer-display {
-    min-width: 100px;
-    text-align: center;
-    font-family: 'SF Mono', 'Consolas', monospace;
-    font-size: 1.25rem;
-    padding: 8px 16px;
-    background: var(--n-action-color);
-    border-radius: 8px;
-    transition: all 0.3s ease;
-}
-
-.timer-display.running {
-    background: linear-gradient(135deg, var(--n-primary-color) 0%, var(--n-primary-color-hover) 100%);
-    color: white;
-    animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.85;
-    }
-}
-
-@media (max-width: 768px) {
-    .tracker-content {
-        flex-wrap: wrap;
-    }
-
-    .description-input {
-        width: 100%;
-    }
-
-    .project-select {
-        flex: 1;
-    }
-}
-</style>

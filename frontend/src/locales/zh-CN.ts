@@ -21,6 +21,7 @@ export default {
     configure: "配置",
     next: "下一步",
     prev: "上一步",
+    user: "用户",
   },
 
   // 启动画面

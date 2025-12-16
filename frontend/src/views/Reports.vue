@@ -1,18 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NDataTable,
-  NDatePicker,
-  NEmpty,
-  NSelect,
-  NSpace,
-  NSpin,
-  NStatistic,
-  type DataTableColumns,
-} from "naive-ui";
 import PageContainer from "@/components/PageContainer.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import { api } from "@/api";
@@ -20,6 +7,26 @@ import type { Client, Project, ReportFilter, ReportOutput, ReportRow } from "@/t
 import VChart from "vue-echarts";
 import type { EChartsOption } from "echarts";
 import { useI18n } from "vue-i18n";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import DateRangePicker from "@/components/DateRangePicker.vue";
+import { Loader2, BoxSelect } from "lucide-vue-next";
+import { getLocalTimeZone, type DateValue } from '@internationalized/date';
+
+type DateRange = {
+  start: DateValue | undefined
+  end: DateValue | undefined
+}
 
 const { t } = useI18n();
 
@@ -30,22 +37,22 @@ const report = ref<ReportOutput | null>(null);
 const clients = ref<Client[]>([]);
 const projects = ref<Project[]>([]);
 
-const dateRange = ref<[number, number] | null>(null);
-const selectedClientId = ref<number | null>(null);
-const selectedProjectId = ref<number | null>(null);
+const dateRange = ref<DateRange | undefined>();
+const selectedClientId = ref<string>("");
+const selectedProjectId = ref<string>("");
 
 const clientOptions = computed(() =>
-  clients.value.map((c) => ({ label: c.name, value: c.id }))
+  clients.value.map((c) => ({ label: c.name, value: String(c.id) }))
 );
 const filteredProjectOptions = computed(() => {
   const filtered = selectedClientId.value
-    ? projects.value.filter((p) => p.clientId === selectedClientId.value)
+    ? projects.value.filter((p) => String(p.clientId) === selectedClientId.value)
     : projects.value;
-  return filtered.map((p) => ({ label: p.name, value: p.id }));
+  return filtered.map((p) => ({ label: p.name, value: String(p.id) }));
 });
 
-function formatDate(ts: number): string {
-  const d = new Date(ts);
+function formatDate(date: Date | number): string {
+  const d = new Date(date);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -62,12 +69,12 @@ async function loadReport() {
   error.value = null;
   try {
     const filter: ReportFilter = {};
-    if (dateRange.value) {
-      filter.startDate = formatDate(dateRange.value[0]);
-      filter.endDate = formatDate(dateRange.value[1]);
+    if (dateRange.value?.start && dateRange.value?.end) {
+      filter.startDate = formatDate(dateRange.value.start.toDate(getLocalTimeZone()));
+      filter.endDate = formatDate(dateRange.value.end.toDate(getLocalTimeZone()));
     }
-    if (selectedClientId.value) filter.clientId = selectedClientId.value;
-    if (selectedProjectId.value) filter.projectId = selectedProjectId.value;
+    if (selectedClientId.value) filter.clientId = Number(selectedClientId.value);
+    if (selectedProjectId.value) filter.projectId = Number(selectedProjectId.value);
 
     report.value = await api.reports.get(filter);
   } catch (e) {
@@ -82,26 +89,6 @@ onMounted(async () => {
   await loadFilters();
   await loadReport();
 });
-
-const columns = computed<DataTableColumns<ReportRow>>(() => [
-  { title: t("reports.table.date"), key: "date", width: 110 },
-  { title: t("reports.table.client"), key: "clientName", width: 100 },
-  { title: t("reports.table.project"), key: "projectName", ellipsis: { tooltip: true } },
-  {
-    title: t("reports.table.hours"),
-    key: "hours",
-    width: 70,
-    align: "right",
-    render: (row) => row.hours.toFixed(1),
-  },
-  {
-    title: t("reports.table.income"),
-    key: "income",
-    width: 90,
-    align: "right",
-    render: (row) => row.income.toFixed(2),
-  },
-]);
 
 const chartOption = computed<EChartsOption>(() => {
   const c = report.value?.chart;
@@ -138,65 +125,136 @@ const chartOption = computed<EChartsOption>(() => {
   };
 });
 
-// DataTable pagination config - show 5 items per page
-const tablePagination = {
-  pageSize: 5,
-};
+// Pagination state
+const currentPage = ref(1);
+const pageSize = 10;
+
+const paginatedRows = computed(() => {
+  if (!report.value?.rows) return [];
+  const start = (currentPage.value - 1) * pageSize;
+  return report.value.rows.slice(start, start + pageSize);
+});
+
+const totalPages = computed(() => {
+  if (!report.value?.rows) return 0;
+  return Math.ceil(report.value.rows.length / pageSize);
+});
 </script>
 
 <template>
   <PageContainer fill>
     <PageHeader :title="t('reports.title')" :subtitle="t('reports.subtitle')">
       <template #extra>
-        <n-space size="large">
-          <n-statistic :label="t('reports.stats.totalHours')">
-            <template #default>
-              {{ report?.totalHours || 0 }}
-            </template>
-          </n-statistic>
-          <n-statistic :label="t('reports.stats.totalIncome')">
-            <template #default>
-              {{ report?.totalIncome || 0 }}
-            </template>
-          </n-statistic>
-        </n-space>
+        <div class="flex gap-8">
+          <div class="flex flex-col items-end">
+            <span class="text-xs text-muted-foreground uppercase font-semibold">{{ t('reports.stats.totalHours')
+              }}</span>
+            <span class="text-2xl font-bold">{{ report?.totalHours || 0 }}</span>
+          </div>
+          <div class="flex flex-col items-end">
+            <span class="text-xs text-muted-foreground uppercase font-semibold">{{ t('reports.stats.totalIncome')
+              }}</span>
+            <span class="text-2xl font-bold text-primary">{{ report?.totalIncome || 0 }}</span>
+          </div>
+        </div>
       </template>
     </PageHeader>
 
-    <div class="reports-root">
-      <n-card class="filters-card" size="small" :content-style="{ padding: '8px 12px' }">
-        <n-space align="center" :wrap="true" :size="8">
-          <n-date-picker v-model:value="dateRange" type="daterange" clearable size="small"
-            :placeholder="t('reports.filters.dateRange')" class="filter-date" />
-          <n-select v-model:value="selectedClientId" :options="clientOptions" clearable size="small"
-            :placeholder="t('reports.filters.client')" class="filter-select" />
-          <n-select v-model:value="selectedProjectId" :options="filteredProjectOptions" clearable size="small"
-            :placeholder="t('reports.filters.project')" class="filter-select" />
-          <n-button type="primary" size="small" @click="loadReport">
-            {{ t("reports.filters.apply") }}
-          </n-button>
-        </n-space>
-      </n-card>
+    <div class="flex flex-col gap-4 flex-1 min-h-0">
+      <Card class="shrink-0 bg-muted/30 border-0">
+        <CardContent class="p-3 flex flex-wrap gap-2 items-center">
+          <DateRangePicker v-model="dateRange" class="w-[260px]" />
 
-      <div class="reports-body">
-        <div v-if="loading && !report" class="loading-center">
-          <n-spin size="large" />
+          <Select v-model="selectedClientId">
+            <SelectTrigger class="w-[180px]">
+              <SelectValue :placeholder="t('reports.filters.client')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="c in clientOptions" :key="c.value" :value="c.value">
+                {{ c.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select v-model="selectedProjectId" :disabled="!selectedClientId">
+            <SelectTrigger class="w-[180px]">
+              <SelectValue :placeholder="t('reports.filters.project')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="p in filteredProjectOptions" :key="p.value" :value="p.value">
+                {{ p.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button @click="loadReport">
+            {{ t("reports.filters.apply") }}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div class="flex-1 flex flex-col min-h-0 relative">
+        <div v-if="loading && !report" class="absolute inset-0 flex items-center justify-center z-10 bg-background/50">
+          <Loader2 class="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
 
-        <n-alert v-else-if="error" type="error" :title="error" />
+        <Alert v-else-if="error" variant="destructive" class="mb-4">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{{ error }}</AlertDescription>
+        </Alert>
 
         <template v-else-if="report">
-          <div class="reports-content">
-            <n-card v-if="report.chart.dates.length" size="small" :content-style="{ padding: '8px' }">
-              <v-chart :option="chartOption" autoresize class="report-chart" />
-            </n-card>
+          <div class="flex flex-col gap-4 flex-1 min-h-0">
+            <Card v-if="report.chart.dates.length" class="shrink-0">
+              <CardContent class="p-2">
+                <v-chart :option="chartOption" autoresize class="report-chart" />
+              </CardContent>
+            </Card>
 
-            <n-empty v-if="report.rows.length === 0" :description="t('reports.empty')" size="small" />
+            <div v-if="report.rows.length === 0"
+              class="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <BoxSelect class="w-12 h-12 mb-4 opacity-50" />
+              <p>{{ t('reports.empty') }}</p>
+            </div>
 
-            <!-- Using flex-height with calc() for native DataTable scrolling with fixed headers -->
-            <n-data-table v-else :columns="columns" :data="report.rows" :bordered="true" :loading="loading"
-              :pagination="tablePagination" size="small" flex-height
-              :style="{ height: 'calc(100vh - 420px)', minHeight: '150px' }" />
+            <!-- shadcn Table replacing NDataTable -->
+            <Card v-else class="flex-1 overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead class="w-[110px]">{{ t("reports.table.date") }}</TableHead>
+                    <TableHead class="w-[100px]">{{ t("reports.table.client") }}</TableHead>
+                    <TableHead>{{ t("reports.table.project") }}</TableHead>
+                    <TableHead class="w-[70px] text-right">{{ t("reports.table.hours") }}</TableHead>
+                    <TableHead class="w-[90px] text-right">{{ t("reports.table.income") }}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow v-for="row in paginatedRows" :key="`${row.date}-${row.projectName}`">
+                    <TableCell>{{ row.date }}</TableCell>
+                    <TableCell>{{ row.clientName }}</TableCell>
+                    <TableCell class="truncate max-w-[200px]" :title="row.projectName">{{ row.projectName }}</TableCell>
+                    <TableCell class="text-right tabular-nums">{{ row.hours.toFixed(1) }}</TableCell>
+                    <TableCell class="text-right tabular-nums">{{ row.income.toFixed(2) }}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+
+              <!-- Pagination -->
+              <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t">
+                <span class="text-sm text-muted-foreground">
+                  Page {{ currentPage }} of {{ totalPages }} ({{ report.rows.length }} rows)
+                </span>
+                <div class="flex gap-2">
+                  <Button variant="outline" size="sm" :disabled="currentPage === 1" @click="currentPage--">
+                    Previous
+                  </Button>
+                  <Button variant="outline" size="sm" :disabled="currentPage === totalPages" @click="currentPage++">
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         </template>
       </div>
@@ -205,55 +263,8 @@ const tablePagination = {
 </template>
 
 <style scoped>
-.reports-root {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-  min-height: 0;
-}
-
-.reports-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
-
-.loading-center {
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.reports-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 0;
-  flex: 1;
-}
-
 /* Fixed chart height to make calc() predictable */
 .report-chart {
   height: 200px;
-}
-
-.filter-date {
-  width: 200px;
-}
-
-.filter-select {
-  width: 140px;
-}
-
-@media (max-width: 520px) {
-
-  .filter-date,
-  .filter-select {
-    width: 100%;
-  }
 }
 </style>

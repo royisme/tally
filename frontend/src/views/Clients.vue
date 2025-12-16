@@ -1,22 +1,33 @@
+```vue
 <script setup lang="ts">
 import { h, onMounted, computed, ref } from 'vue'
-import {
-  NButton, NDataTable, NTag, NSpace, NText,
-  type DataTableColumns, useMessage, useDialog
-} from 'naive-ui'
 import { useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
+import type { ColumnDef } from '@tanstack/vue-table'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import ClientFormModal from '@/components/ClientFormModal.vue'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { DataTable } from '@/components/ui/data-table'
+import { DataTableColumnHeader } from '@/components/ui/data-table'
 import { useClientStore } from '@/stores/clients'
 import { useProjectStore } from '@/stores/projects'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import type { Client, Project } from '@/types'
-import { Plus, Edit, Trash2, ChevronRight } from 'lucide-vue-next'
+import { Plus, Edit, Trash2, ChevronRight, ChevronDown } from 'lucide-vue-next'
 
-const message = useMessage()
-const dialog = useDialog()
 const router = useRouter()
 const clientStore = useClientStore()
 const projectStore = useProjectStore()
@@ -28,6 +39,10 @@ const { t } = useI18n()
 const showModal = ref(false)
 const editingClient = ref<Client | null>(null)
 
+// Alert Dialog State
+const showDeleteDialog = ref(false)
+const clientToDelete = ref<Client | null>(null)
+
 function handleNewClient() {
   editingClient.value = null
   showModal.value = true
@@ -38,34 +53,34 @@ function handleEditClient(client: Client) {
   showModal.value = true
 }
 
-function handleDeleteClient(client: Client) {
-  dialog.warning({
-    title: t('clients.deleteTitle'),
-    content: t('clients.deleteConfirm', { name: client.name }),
-    positiveText: t('common.delete'),
-    negativeText: t('common.cancel'),
-    onPositiveClick: async () => {
-      try {
-        await clientStore.deleteClient(client.id)
-        message.success(t('clients.deleteSuccess'))
-      } catch (error) {
-        message.error(t('clients.deleteError'))
-      }
-    }
-  })
+function confirmDeleteClient(client: Client) {
+  clientToDelete.value = client
+  showDeleteDialog.value = true
+}
+
+async function handleDeleteClient() {
+  if (!clientToDelete.value) return
+
+  try {
+    await clientStore.deleteClient(clientToDelete.value.id)
+    toast.success(t('clients.deleteSuccess'))
+    showDeleteDialog.value = false
+  } catch (error) {
+    toast.error(t('clients.deleteError'))
+  }
 }
 
 async function handleSubmitClient(client: Omit<Client, 'id'> | Client) {
   try {
     if ('id' in client) {
       await clientStore.updateClient(client)
-      message.success(t('clients.updateSuccess'))
+      toast.success(t('clients.updateSuccess'))
     } else {
       await clientStore.createClient(client)
-      message.success(t('clients.createSuccess'))
+      toast.success(t('clients.createSuccess'))
     }
   } catch (error) {
-    message.error(t('clients.saveError'))
+    toast.error(t('clients.saveError'))
   }
 }
 
@@ -124,130 +139,143 @@ const treeData = computed<TreeRow[]>(() => {
 })
 
 // Table Columns for tree data
-const columns: DataTableColumns<TreeRow> = [
+const columns: ColumnDef<TreeRow>[] = [
   {
-    title: () => t('clients.columns.clientName'),
-    key: 'name',
-    render(row) {
-      if (row.type === 'client') {
-        const projectCount = row.children?.length || 0
-        // Use inline-flex to keep content on the same line as the tree expand icon
-        return h('span', { style: 'display: inline-flex; flex-direction: column;' }, [
-          h('span', { style: 'font-weight: 600;' }, row.name),
-          h(NText, { depth: 3, style: 'font-size: 11px;' }, { default: () => t('clients.columns.projectsCount', { count: projectCount }) })
+    accessorKey: 'name',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('clients.columns.clientName') }),
+    cell: ({ row }) => {
+      const isClient = row.original.type === 'client'
+      const projectCount = row.original.children?.length || 0
+
+      return h('div', {
+        class: 'flex items-center gap-2',
+        style: { paddingLeft: `${row.depth * 2}rem` }
+      }, [
+        // Expand toggle button for clients
+        isClient
+          ? h(Button, {
+            variant: 'ghost',
+            size: 'icon',
+            class: 'h-6 w-6 p-0 shrink-0',
+            onClick: row.getToggleExpandedHandler(),
+          }, {
+            default: () => row.getIsExpanded()
+              ? h(ChevronDown, { class: 'h-4 w-4' })
+              : h(ChevronRight, { class: 'h-4 w-4' })
+          })
+          : h('div', { class: 'w-6 h-6 shrink-0' }), // Spacer for alignment
+
+        h('div', { class: 'flex flex-col' }, [
+          h('span', { class: isClient ? 'font-semibold' : 'font-medium' }, row.original.name),
+          isClient
+            ? h('span', { class: 'text-xs text-muted-foreground' }, t('clients.columns.projectsCount', { count: projectCount }))
+            : h('span', { class: 'text-xs text-muted-foreground' }, row.original.description)
         ])
-      } else {
-        // Project row - NDataTable handles indentation automatically
-        return h('span', { style: 'display: inline-flex; flex-direction: column;' }, [
-          h('span', { style: 'font-weight: 500;' }, row.name),
-          h(NText, { depth: 3, style: 'font-size: 11px;' }, { default: () => row.description })
-        ])
-      }
+      ])
     }
   },
   {
-    title: () => t('clients.columns.contactPerson'),
-    key: 'contactPerson',
-    width: 180,
-    render(row) {
+    accessorKey: 'contactPerson',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('clients.columns.contactPerson') }),
+    cell: ({ row }) => {
       // Only show for clients
-      return row.type === 'client' ? (row.contactPerson || '-') : ''
+      return row.original.type === 'client' ? (row.original.contactPerson || '-') : ''
     }
   },
   {
-    title: () => t('clients.columns.status'),
-    key: 'status',
-    width: 100,
-    render(row) {
-      const statusType = row.status === 'active' ? 'success' : (row.status === 'archived' ? 'warning' : 'default')
-      const statusKey = row.type === 'client' ? `clients.status.${row.status}` : `projects.status.${row.status}`
-      return h(
-        NTag,
-        {
-          type: statusType,
-          bordered: false,
-          round: true,
-          size: 'small'
-        },
-        { default: () => t(statusKey) }
-      )
+    accessorKey: 'status',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('clients.columns.status') }),
+    cell: ({ row }) => {
+      const variant = row.original.status === 'active' ? 'default' : (row.original.status === 'archived' ? 'secondary' : 'outline')
+      const statusKey = row.original.type === 'client'
+        ? `clients.status.${row.original.status}`
+        : `projects.status.${row.original.status}`
+
+      return h(Badge, { variant, class: 'capitalize' }, { default: () => t(statusKey) })
     }
   },
   {
-    title: () => t('clients.columns.actions'),
-    key: 'actions',
-    width: 100,
-    render(row) {
-      if (row.type === 'client') {
-        // Client actions: Edit & Delete
-        const client = clients.value.find(c => c.id === row.clientId)
+    id: 'actions',
+    header: ({ column }) => h(DataTableColumnHeader, { column: column as any, title: t('clients.columns.actions') }),
+    cell: ({ row }) => {
+      if (row.original.type === 'client') {
+        const client = clients.value.find(c => c.id === row.original.clientId)
         if (!client) return null
-        return h(NSpace, { size: 'small' }, {
-          default: () => [
-            h(
-              NButton,
-              {
-                size: 'small',
-                quaternary: true,
-                circle: true,
-                onClick: (e: MouseEvent) => { e.stopPropagation(); handleEditClient(client) }
-              },
-              { icon: () => h(Edit, { class: 'w-4 h-4' }) }
-            ),
-            h(
-              NButton,
-              {
-                size: 'small',
-                quaternary: true,
-                circle: true,
-                type: 'error',
-                onClick: (e: MouseEvent) => { e.stopPropagation(); handleDeleteClient(client) }
-              },
-              { icon: () => h(Trash2, { class: 'w-4 h-4' }) }
-            )
-          ]
-        })
+
+        return h('div', { class: 'flex gap-1' }, [
+          h(Button, {
+            size: 'icon',
+            variant: 'ghost',
+            class: 'h-8 w-8',
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation()
+              handleEditClient(client)
+            }
+          }, { default: () => h(Edit, { class: 'w-4 h-4' }) }),
+
+          h(Button, {
+            size: 'icon',
+            variant: 'ghost',
+            class: 'h-8 w-8 text-destructive hover:text-destructive',
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation()
+              confirmDeleteClient(client)
+            }
+          }, { default: () => h(Trash2, { class: 'w-4 h-4' }) })
+        ])
       } else {
-        // Project action: View details
-        return h(
-          NButton,
-          {
-            size: 'small',
-            quaternary: true,
-            circle: true,
-            onClick: () => handleViewProject(row.projectId!)
-          },
-          { icon: () => h(ChevronRight, { class: 'w-4 h-4' }) }
-        )
+        // Project actions
+        const projectId = row.original.projectId
+        if (!projectId) return null
+
+        return h(Button, {
+          size: 'sm',
+          variant: 'ghost',
+          onClick: () => handleViewProject(projectId)
+        }, { default: () => t('common.view') })
       }
     }
   }
 ]
-
-// Row class for styling
-function rowClassName(row: TreeRow) {
-  return row.type === 'project' ? 'project-row' : 'client-row'
-}
 </script>
 
 <template>
-  <PageContainer fill>
-    <PageHeader :title="t('clients.title')" :subtitle="t('clients.subtitle')">
-      <template #extra>
-        <n-button type="primary" @click="handleNewClient">
-          <template #icon>
-            <Plus class="w-4 h-4" />
-          </template>
+  <PageContainer>
+    <PageHeader :title="t('clients.title')" :description="t('clients.subtitle')">
+      <template #actions>
+        <Button @click="handleNewClient">
+          <Plus class="w-4 h-4 mr-2" />
           {{ t('clients.addClient') }}
-        </n-button>
+        </Button>
       </template>
     </PageHeader>
 
-    <ClientFormModal v-model:show="showModal" :client="editingClient" @submit="handleSubmitClient" />
+    <div class="space-y-4">
+      <DataTable :columns="columns" :data="treeData" :loading="loading" :get-sub-rows="(row) => row.children" />
+    </div>
 
-    <n-data-table :columns="columns" :data="treeData" :loading="loading" :bordered="false"
-      :row-key="(row: TreeRow) => row.key" children-key="children" :row-class-name="rowClassName"
-      class="client-table" />
+    <!-- Client Form Modal -->
+    <ClientFormModal v-model:show="showModal" :edit-client="editingClient" :grid-layout="true"
+      @submit="handleSubmitClient" />
+
+    <!-- Delete Confirmation Dialog -->
+    <AlertDialog :open="showDeleteDialog" @update:open="showDeleteDialog = $event">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{{ t('clients.deleteTitle') }}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {{ t('clients.deleteConfirm', { name: clientToDelete?.name }) }}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel @click="showDeleteDialog = false">{{ t('common.cancel') }}</AlertDialogCancel>
+          <AlertDialogAction @click="handleDeleteClient"
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            {{ t('common.delete') }}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </PageContainer>
 </template>
 

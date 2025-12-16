@@ -1,99 +1,46 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  NCard,
-  NDataTable,
-  NButton,
-  NSpace,
-  NTag,
-  useMessage,
-  type DataTableColumns,
-} from 'naive-ui'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { PlusOutlined } from '@vicons/antd'
 import { api } from '@/api'
 import type { FinanceAccount } from '@/types/finance'
+import { toast } from 'vue-sonner'
 
 const { t } = useI18n()
-const message = useMessage()
 
 const loading = ref(false)
 const accounts = ref<FinanceAccount[]>([])
-
-const columns: DataTableColumns<FinanceAccount> = [
-  {
-    title: t('finance.accounts.table.name'),
-    key: 'name',
-  },
-  {
-    title: t('finance.accounts.table.type'),
-    key: 'type',
-    width: 120,
-    render: (row) => {
-      const typeMap: Record<string, { label: string; type: string }> = {
-        checking: { label: t('finance.accounts.types.checking'), type: 'info' },
-        savings: { label: t('finance.accounts.types.savings'), type: 'success' },
-        credit: { label: t('finance.accounts.types.credit'), type: 'warning' },
-        investment: { label: t('finance.accounts.types.investment'), type: 'default' },
-      }
-      const config = typeMap[row.type] || { label: row.type, type: 'default' }
-      return h(
-        NTag,
-        { type: config.type, size: 'small', bordered: false, round: true },
-        { default: () => config.label }
-      )
-    },
-  },
-  {
-    title: t('finance.accounts.table.currency'),
-    key: 'currency',
-    width: 100,
-  },
-  {
-    title: t('finance.accounts.table.balance'),
-    key: 'balance',
-    width: 150,
-    align: 'right',
-    render: (row) => {
-      return `$${row.balance.toFixed(2)}`
-    },
-  },
-  {
-    title: t('common.actions'),
-    key: 'actions',
-    width: 150,
-    render: () => {
-      return h(
-        NSpace,
-        { size: 'small' },
-        {
-          default: () => [
-            h(
-              NButton,
-              { size: 'small', type: 'primary', ghost: true },
-              { default: () => t('common.edit') }
-            ),
-            h(
-              NButton,
-              { size: 'small', type: 'error', ghost: true },
-              { default: () => t('common.delete') }
-            ),
-          ],
-        }
-      )
-    },
-  },
-]
 
 async function loadAccounts() {
   loading.value = true
   try {
     accounts.value = await api.finance.accounts.list()
   } catch (e) {
-    message.error(t('finance.accounts.errors.loadFailed'))
+    toast.error(t('finance.accounts.errors.loadFailed'))
   } finally {
     loading.value = false
   }
+}
+
+function getTypeConfig(type: string) {
+  const typeMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+    checking: { label: t('finance.accounts.types.checking'), variant: 'default' }, // info-like
+    savings: { label: t('finance.accounts.types.savings'), variant: 'secondary' }, // success-like (approx)
+    credit: { label: t('finance.accounts.types.credit'), variant: 'destructive' }, // warning-like (approx)
+    investment: { label: t('finance.accounts.types.investment'), variant: 'outline' },
+  }
+  return typeMap[type] || { label: type, variant: 'outline' }
 }
 
 onMounted(() => {
@@ -102,45 +49,66 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="accounts-page">
-    <div class="page-header">
-      <h1 class="page-title">{{ t('finance.accounts.title') }}</h1>
-      <NButton type="primary">
+  <div class="accounts-page space-y-6">
+    <div class="page-header flex justify-between items-center">
+      <h1 class="page-title text-2xl font-bold">{{ t('finance.accounts.title') }}</h1>
+      <Button>
         <template #icon>
-          <PlusOutlined />
+          <PlusOutlined class="mr-2 h-4 w-4" />
         </template>
         {{ t('finance.accounts.addAccount') }}
-      </NButton>
+      </Button>
     </div>
 
-    <NCard :bordered="true">
-      <NDataTable
-        :columns="columns"
-        :data="accounts"
-        :loading="loading"
-        :pagination="{ pageSize: 10 }"
-      />
-    </NCard>
+    <Card>
+      <CardContent class="p-0">
+        <div class="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{{ t('finance.accounts.table.name') }}</TableHead>
+                <TableHead class="w-[120px]">{{ t('finance.accounts.table.type') }}</TableHead>
+                <TableHead class="w-[100px]">{{ t('finance.accounts.table.currency') }}</TableHead>
+                <TableHead class="w-[150px] text-right">{{ t('finance.accounts.table.balance') }}</TableHead>
+                <TableHead class="w-[150px]">{{ t('common.actions') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <template v-if="accounts.length > 0">
+                <TableRow v-for="account in accounts" :key="account.id">
+                  <TableCell>{{ account.name }}</TableCell>
+                  <TableCell>
+                    <Badge :variant="getTypeConfig(account.type).variant" class="rounded-full">
+                      {{ getTypeConfig(account.type).label }}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{{ account.currency }}</TableCell>
+                  <TableCell class="text-right">${{ account.balance.toFixed(2) }}</TableCell>
+                  <TableCell>
+                    <div class="flex items-center gap-2">
+                      <Button size="sm" variant="ghost" class="h-8 px-2 text-primary">
+                        {{ t('common.edit') }}
+                      </Button>
+                      <Button size="sm" variant="ghost" class="h-8 px-2 text-destructive hover:text-destructive/90">
+                        {{ t('common.delete') }}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </template>
+              <TableRow v-else>
+                <TableCell colspan="5" class="h-24 text-center">
+                  {{ loading ? 'Loading...' : t('common.noData') }}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   </div>
 </template>
 
 <style scoped>
-.accounts-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--n-text-color);
-}
+/* No extra styles needed with utility classes */
 </style>

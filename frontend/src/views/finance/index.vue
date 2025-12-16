@@ -2,17 +2,6 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  NCard,
-  NGrid,
-  NGridItem,
-  NStatistic,
-  NButton,
-  NList,
-  NListItem,
-  NThing,
-  NSpace,
-} from 'naive-ui'
-import {
   Wallet,
   TrendingUp,
   TrendingDown,
@@ -21,6 +10,9 @@ import {
 } from 'lucide-vue-next'
 import { api } from '@/api'
 import type { FinanceSummary } from '@/types/finance'
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 
 const { t } = useI18n()
 
@@ -44,218 +36,127 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="finance-overview">
+  <div class="finance-overview space-y-6">
     <!-- Header -->
-    <div class="overview-header">
+    <div class="overview-header flex justify-between items-start">
       <div>
-        <h1 class="page-title">{{ t('finance.overview.title') }}</h1>
-        <p class="page-subtitle">{{ t('finance.overview.subtitle') }}</p>
+        <h1 class="page-title text-3xl font-bold tracking-tight mb-2">{{ t('finance.overview.title') }}</h1>
+        <p class="page-subtitle text-muted-foreground">{{ t('finance.overview.subtitle') }}</p>
       </div>
-      <NSpace>
-        <NButton type="primary" ghost>
-          <template #icon>
-            <Plus class="w-4 h-4" />
-          </template>
+      <div class="flex gap-2">
+        <Button variant="outline">
+          <Plus class="w-4 h-4 mr-2" />
           {{ t('finance.actions.addTransaction') }}
-        </NButton>
-        <NButton type="primary">
-          <template #icon>
-            <Wallet class="w-4 h-4" />
-          </template>
+        </Button>
+        <Button>
+          <Wallet class="w-4 h-4 mr-2" />
           {{ t('finance.actions.addAccount') }}
-        </NButton>
-      </NSpace>
+        </Button>
+      </div>
     </div>
 
     <!-- Summary Cards -->
-    <div class="summary-section">
-      <NGrid x-gap="24" y-gap="24" :cols="4">
-        <NGridItem>
-          <NCard :bordered="true" class="metric-card">
-            <NStatistic :label="t('finance.summary.totalBalance')">
-              <template #prefix>
-                <div class="icon-box mocha">
-                  <Wallet class="w-6 h-6" />
-                </div>
-              </template>
-              <template #default>
-                <span class="metric-value">${{ summary?.totalBalance.toFixed(2) || '0.00' }}</span>
-              </template>
-            </NStatistic>
-          </NCard>
-        </NGridItem>
+    <div class="summary-section grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <Card class="hover:shadow-md transition-shadow">
+        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle class="text-sm font-medium">
+            {{ t('finance.summary.totalBalance') }}
+          </CardTitle>
+          <div class="icon-box p-2 rounded-md bg-[#8D7B68]/10 text-[#8D7B68]">
+            <Wallet class="w-4 h-4" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div class="text-2xl font-bold">${{ summary?.totalBalance.toFixed(2) || '0.00' }}</div>
+        </CardContent>
+      </Card>
 
-        <NGridItem>
-          <NCard :bordered="true" class="metric-card">
-            <NStatistic :label="t('finance.summary.totalIncome')">
-              <template #prefix>
-                <div class="icon-box green">
-                  <TrendingUp class="w-6 h-6" />
-                </div>
-              </template>
-              <template #default>
-                <span class="metric-value">${{ summary?.totalIncome.toFixed(2) || '0.00' }}</span>
-              </template>
-            </NStatistic>
-          </NCard>
-        </NGridItem>
+      <Card class="hover:shadow-md transition-shadow">
+        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle class="text-sm font-medium">
+            {{ t('finance.summary.totalIncome') }}
+          </CardTitle>
+          <div
+            class="icon-box p-2 rounded-md bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+            <TrendingUp class="w-4 h-4" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div class="text-2xl font-bold">${{ summary?.totalIncome.toFixed(2) || '0.00' }}</div>
+        </CardContent>
+      </Card>
 
-        <NGridItem>
-          <NCard :bordered="true" class="metric-card">
-            <NStatistic :label="t('finance.summary.totalExpenses')">
-              <template #prefix>
-                <div class="icon-box red">
-                  <TrendingDown class="w-6 h-6" />
-                </div>
-              </template>
-              <template #default>
-                <span class="metric-value">${{ summary?.totalExpense.toFixed(2) || '0.00' }}</span>
-              </template>
-            </NStatistic>
-          </NCard>
-        </NGridItem>
+      <Card class="hover:shadow-md transition-shadow">
+        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle class="text-sm font-medium">
+            {{ t('finance.summary.totalExpenses') }}
+          </CardTitle>
+          <div class="icon-box p-2 rounded-md bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+            <TrendingDown class="w-4 h-4" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div class="text-2xl font-bold">${{ summary?.totalExpense.toFixed(2) || '0.00' }}</div>
+        </CardContent>
+      </Card>
 
-        <NGridItem>
-          <NCard :bordered="true" class="metric-card">
-            <NStatistic :label="t('finance.summary.netCashFlow')">
-              <template #prefix>
-                <div class="icon-box amber">
-                  <DollarSign class="w-6 h-6" />
-                </div>
-              </template>
-              <template #default>
-                <span class="metric-value">${{ summary?.cashFlow.toFixed(2) || '0.00' }}</span>
-              </template>
-            </NStatistic>
-          </NCard>
-        </NGridItem>
-      </NGrid>
+      <Card class="hover:shadow-md transition-shadow">
+        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle class="text-sm font-medium">
+            {{ t('finance.summary.netCashFlow') }}
+          </CardTitle>
+          <div class="icon-box p-2 rounded-md bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+            <DollarSign class="w-4 h-4" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div class="text-2xl font-bold">${{ summary?.cashFlow.toFixed(2) || '0.00' }}</div>
+        </CardContent>
+      </Card>
     </div>
 
     <!-- Quick Actions -->
     <div class="actions-section">
-      <NCard :title="t('finance.overview.quickActions')" :bordered="true">
-        <NList hoverable clickable>
-          <NListItem>
-            <NThing>
-              <template #header>
-                {{ t('finance.overview.viewAllAccounts') }}
-              </template>
-              <template #description>
-                {{ t('finance.overview.manageYourAccounts') }}
-              </template>
-            </NThing>
-          </NListItem>
-          <NListItem>
-            <NThing>
-              <template #header>
-                {{ t('finance.overview.viewAllTransactions') }}
-              </template>
-              <template #description>
-                {{ t('finance.overview.browseRecentTransactions') }}
-              </template>
-            </NThing>
-          </NListItem>
-          <NListItem>
-            <NThing>
-              <template #header>
-                {{ t('finance.overview.importStatement') }}
-              </template>
-              <template #description>
-                {{ t('finance.overview.importBankStatement') }}
-              </template>
-            </NThing>
-          </NListItem>
-          <NListItem>
-            <NThing>
-              <template #header>
-                {{ t('finance.overview.viewReports') }}
-              </template>
-              <template #description>
-                {{ t('finance.overview.analyzeYourFinance') }}
-              </template>
-            </NThing>
-          </NListItem>
-        </NList>
-      </NCard>
+      <Card>
+        <CardHeader>
+          <CardTitle>{{ t('finance.overview.quickActions') }}</CardTitle>
+        </CardHeader>
+        <CardContent class="p-0">
+          <div class="flex flex-col">
+            <button
+              class="flex items-center w-full p-4 hover:bg-muted/50 transition-colors text-left border-b last:border-0">
+              <div class="flex-1">
+                <div class="font-medium text-sm">{{ t('finance.overview.viewAllAccounts') }}</div>
+                <div class="text-xs text-muted-foreground">{{ t('finance.overview.manageYourAccounts') }}</div>
+              </div>
+            </button>
+            <button
+              class="flex items-center w-full p-4 hover:bg-muted/50 transition-colors text-left border-b last:border-0">
+              <div class="flex-1">
+                <div class="font-medium text-sm">{{ t('finance.overview.viewAllTransactions') }}</div>
+                <div class="text-xs text-muted-foreground">{{ t('finance.overview.browseRecentTransactions') }}</div>
+              </div>
+            </button>
+            <button
+              class="flex items-center w-full p-4 hover:bg-muted/50 transition-colors text-left border-b last:border-0">
+              <div class="flex-1">
+                <div class="font-medium text-sm">{{ t('finance.overview.importStatement') }}</div>
+                <div class="text-xs text-muted-foreground">{{ t('finance.overview.importBankStatement') }}</div>
+              </div>
+            </button>
+            <button class="flex items-center w-full p-4 hover:bg-muted/50 transition-colors text-left">
+              <div class="flex-1">
+                <div class="font-medium text-sm">{{ t('finance.overview.viewReports') }}</div>
+                <div class="text-xs text-muted-foreground">{{ t('finance.overview.analyzeYourFinance') }}</div>
+              </div>
+            </button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   </div>
 </template>
 
 <style scoped>
-.finance-overview {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.overview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-}
-
-.page-title {
-  margin: 0 0 8px 0;
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--n-text-color);
-}
-
-.page-subtitle {
-  margin: 0;
-  font-size: 14px;
-  color: var(--n-text-color-2);
-}
-
-.summary-section {
-  margin-bottom: 8px;
-}
-
-.metric-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.metric-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px -2px rgba(44, 43, 41, 0.08);
-}
-
-.icon-box {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-}
-
-.icon-box.mocha {
-  background: linear-gradient(135deg, #8D7B68 0%, #A4907C 100%);
-}
-
-.icon-box.green {
-  background: linear-gradient(135deg, #0F766E 0%, #14B8A6 100%);
-}
-
-.icon-box.red {
-  background: linear-gradient(135deg, #DC2626 0%, #EF4444 100%);
-}
-
-.icon-box.amber {
-  background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);
-}
-
-.icon-box svg {
-  width: 24px;
-  height: 24px;
-}
-
-.metric-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--n-text-color);
-}
+/* Scoped styles replaced by Tailwind classes */
 </style>

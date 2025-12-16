@@ -8,6 +8,7 @@ import {
   FileText,
   Mail,
   ChevronRight,
+  Wallet,
 } from "lucide-vue-next";
 import type { Component } from "vue";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +63,15 @@ const categories = computed<SettingCategory[]>(() => [
     path: "/settings/email",
     color: "text-rose-600 dark:text-rose-400",
     bgColor: "bg-rose-100 dark:bg-rose-900/20",
+  },
+  {
+    key: "finance",
+    title: t("settings.finance.title"),
+    description: t("settings.finance.description"),
+    icon: Wallet,
+    path: "/settings/finance",
+    color: "text-purple-600 dark:text-purple-400",
+    bgColor: "bg-purple-100 dark:bg-purple-900/20",
   },
 ]);
 

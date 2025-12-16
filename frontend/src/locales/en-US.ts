@@ -21,6 +21,7 @@ export default {
     configure: "Configure",
     next: "Next",
     prev: "Previous",
+    user: "User",
   },
 
   // Splash Screen

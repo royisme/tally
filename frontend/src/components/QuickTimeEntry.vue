@@ -1,9 +1,36 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { NInput, NSelect, NDatePicker, NButton, NTooltip, useMessage } from 'naive-ui'
 import { Plus, Calendar, Clock, DollarSign } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { toast } from 'vue-sonner'
 import type { Project } from '@/types'
+import { cn } from '@/lib/utils'
+import {
+    parseDate,
+    type DateValue,
+} from '@internationalized/date'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover'
+import { Calendar as CalendarPicker } from '@/components/ui/calendar'
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface Props {
     projects: Project[]
@@ -15,7 +42,6 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
-const message = useMessage()
 const { t } = useI18n()
 
 // Form State
@@ -29,6 +55,21 @@ const isBillable = ref(true)
 const projectOptions = computed(() =>
     props.projects.map(p => ({ label: p.name, value: p.id }))
 )
+
+// Date helper
+const dateValue = computed({
+    get: (): DateValue | undefined => {
+        if (!date.value) return undefined
+        try {
+            return parseDate(date.value)
+        } catch {
+            return undefined
+        }
+    },
+    set: (val: DateValue | undefined) => {
+        date.value = val ? val.toString() : new Date().toLocaleDateString('en-CA')
+    }
+})
 
 /**
  * Parse duration string to seconds
@@ -78,18 +119,18 @@ const isValid = computed(() =>
 
 function handleSubmit() {
     if (!projectId.value) {
-        message.warning(t('timesheet.quickEntry.selectProject'))
+        toast.warning(t('timesheet.quickEntry.selectProject'))
         return
     }
 
     const durationSeconds = parseDuration(durationInput.value)
     if (!durationSeconds) {
-        message.warning(t('timesheet.quickEntry.invalidDuration'))
+        toast.warning(t('timesheet.quickEntry.invalidDuration'))
         return
     }
 
     if (!description.value.trim()) {
-        message.warning(t('timesheet.quickEntry.enterDescription'))
+        toast.warning(t('timesheet.quickEntry.enterDescription'))
         return
     }
 
@@ -106,7 +147,7 @@ function handleSubmit() {
     durationInput.value = ''
     // Keep projectId and date for convenience
 
-    message.success(t('timesheet.quickEntry.loggedMsg'))
+    toast.success(t('timesheet.quickEntry.loggedMsg'))
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -121,218 +162,80 @@ function toggleBillable() {
 </script>
 
 <template>
-    <div class="compact-entry-bar">
+    <div
+        class="flex items-center gap-0 bg-card border border-border rounded-lg px-3 py-2 transition-all duration-200 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
         <!-- Date Picker with Calendar Icon -->
-        <div class="entry-cell date-cell">
-            <Calendar class="cell-icon w-4 h-4" />
-            <n-date-picker v-model:formatted-value="date" type="date" value-format="yyyy-MM-dd" class="date-picker"
-                size="small" />
+        <div class="flex items-center px-3 min-w-[140px]">
+            <Calendar class="w-4 h-4 text-muted-foreground mr-2 shrink-0" />
+            <Popover>
+                <PopoverTrigger as-child>
+                    <Button variant="ghost" size="sm"
+                        :class="cn('h-8 px-2 font-normal', !dateValue && 'text-muted-foreground')">
+                        {{ dateValue ? dateValue.toString() : 'Pick date' }}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent class="w-auto p-0" align="start">
+                    <CalendarPicker v-model="dateValue" mode="single" />
+                </PopoverContent>
+            </Popover>
         </div>
 
-        <div class="divider" />
+        <div class="w-px h-6 bg-border shrink-0" />
 
         <!-- Project Selector -->
-        <div class="entry-cell project-cell">
-            <n-select v-model:value="projectId" :options="projectOptions"
-                :placeholder="t('timesheet.entries.selectProject')" class="project-select" filterable size="small" />
+        <div class="flex items-center px-3 min-w-[140px]">
+            <Select :model-value="projectId?.toString()" @update:model-value="(v) => projectId = Number(v)">
+                <SelectTrigger class="h-8 border-0 shadow-none focus:ring-0 bg-transparent">
+                    <SelectValue :placeholder="t('timesheet.entries.selectProject')" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem v-for="p in projectOptions" :key="p.value" :value="p.value.toString()">
+                        {{ p.label }}
+                    </SelectItem>
+                </SelectContent>
+            </Select>
         </div>
 
-        <div class="divider" />
+        <div class="w-px h-6 bg-border shrink-0" />
 
         <!-- Description Input -->
-        <div class="entry-cell description-cell">
-            <n-input v-model:value="description" :placeholder="t('timesheet.entries.describeTask')"
-                class="description-input" @keydown="handleKeydown" size="small" />
+        <div class="flex-1 flex items-center px-3 min-w-[120px]">
+            <Input v-model="description" :placeholder="t('timesheet.entries.describeTask')"
+                class="h-8 border-0 shadow-none focus-visible:ring-0 bg-transparent" @keydown="handleKeydown" />
         </div>
 
-        <div class="divider" />
+        <div class="w-px h-6 bg-border shrink-0" />
 
         <!-- Duration Input with Clock Icon -->
-        <div class="entry-cell duration-cell">
-            <Clock class="cell-icon w-4 h-4" />
-            <n-input v-model:value="durationInput" placeholder="0:00" class="duration-input" @keydown="handleKeydown"
-                size="small" />
+        <div class="flex items-center px-3 min-w-[100px]">
+            <Clock class="w-4 h-4 text-muted-foreground mr-2 shrink-0" />
+            <Input v-model="durationInput" placeholder="0:00"
+                class="h-8 w-16 border-0 shadow-none focus-visible:ring-0 bg-transparent" @keydown="handleKeydown" />
         </div>
 
-        <div class="divider" />
+        <div class="w-px h-6 bg-border shrink-0" />
 
         <!-- Billable Toggle -->
-        <div class="entry-cell billable-cell">
-            <n-tooltip trigger="hover">
-                <template #trigger>
-                    <n-button :type="isBillable ? 'primary' : 'default'" :quaternary="!isBillable" size="small" circle
-                        @click="toggleBillable">
-                        <template #icon>
-                            <DollarSign class="w-4 h-4" />
-                        </template>
-                    </n-button>
-                </template>
-                {{ isBillable ? t('timesheet.entries.billable') : t('timesheet.entries.nonBillable') }}
-            </n-tooltip>
+        <div class="flex items-center px-2">
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger as-child>
+                        <Button :variant="isBillable ? 'default' : 'ghost'" size="icon" class="size-8 rounded-full"
+                            @click="toggleBillable">
+                            <DollarSign class="size-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        {{ isBillable ? t('timesheet.entries.billable') : t('timesheet.entries.nonBillable') }}
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </div>
 
         <!-- Add Entry Button -->
-        <n-button type="success" :disabled="!isValid" @click="handleSubmit" size="small" class="add-entry-btn">
-            <template #icon>
-                <Plus class="w-4 h-4" />
-            </template>
+        <Button :disabled="!isValid" @click="handleSubmit" size="sm" class="ml-2 shrink-0">
+            <Plus class="size-4 mr-1" />
             {{ t('timesheet.entries.addEntry') }}
-        </n-button>
+        </Button>
     </div>
 </template>
-
-<style scoped>
-.compact-entry-bar {
-    display: flex;
-    align-items: center;
-    background: var(--n-card-color);
-    border: 1px solid var(--n-border-color);
-    border-radius: 8px;
-    padding: 8px 12px;
-    gap: 0;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.compact-entry-bar:focus-within {
-    border-color: var(--n-primary-color);
-    box-shadow: 0 0 0 2px rgba(var(--n-primary-color-rgb), 0.1);
-}
-
-.entry-cell {
-    display: flex;
-    align-items: center;
-    padding: 0 12px;
-}
-
-.cell-icon {
-    color: var(--n-text-color-3);
-    margin-right: 6px;
-    flex-shrink: 0;
-}
-
-.divider {
-    width: 1px;
-    height: 24px;
-    background: var(--n-divider-color);
-    flex-shrink: 0;
-}
-
-/* Date Cell */
-.date-cell {
-    min-width: 120px;
-}
-
-.date-picker {
-    flex: 1;
-}
-
-.date-picker :deep(.n-input) {
-    --n-border: none !important;
-    --n-border-hover: none !important;
-    --n-border-focus: none !important;
-    background: transparent !important;
-}
-
-.date-picker :deep(.n-input__border),
-.date-picker :deep(.n-input__state-border) {
-    display: none !important;
-}
-
-/* Project Cell */
-.project-cell {
-    min-width: 120px;
-}
-
-.project-select {
-    flex: 1;
-}
-
-.project-select :deep(.n-base-selection) {
-    --n-border: none !important;
-    --n-border-hover: none !important;
-    --n-border-focus: none !important;
-    --n-border-active: none !important;
-    background: transparent !important;
-}
-
-.project-select :deep(.n-base-selection__border),
-.project-select :deep(.n-base-selection__state-border) {
-    display: none !important;
-}
-
-/* Description Cell */
-.description-cell {
-    flex: 1;
-    min-width: 120px;
-}
-
-.description-input {
-    flex: 1;
-}
-
-.description-input :deep(.n-input__border),
-.description-input :deep(.n-input__state-border) {
-    display: none !important;
-}
-
-/* Duration Cell */
-.duration-cell {
-    min-width: 80px;
-}
-
-.duration-input {
-    width: 60px;
-}
-
-.duration-input :deep(.n-input__border),
-.duration-input :deep(.n-input__state-border) {
-    display: none !important;
-}
-
-/* Billable Cell */
-.billable-cell {
-    padding: 0 8px;
-}
-
-/* Add Entry Button */
-.add-entry-btn {
-    margin-left: 8px;
-    flex-shrink: 0;
-}
-
-@media (max-width: 1024px) {
-    .compact-entry-bar {
-        flex-wrap: wrap;
-        gap: 8px;
-        padding: 12px;
-    }
-
-    .divider {
-        display: none;
-    }
-
-    .entry-cell {
-        padding: 4px 8px;
-        border: 1px solid var(--n-divider-color);
-        border-radius: 6px;
-    }
-
-    .date-cell {
-        min-width: 130px;
-    }
-
-    .project-cell {
-        flex: 1;
-        min-width: 150px;
-    }
-
-    .description-cell {
-        width: 100%;
-        order: 10;
-    }
-
-    .add-entry-btn {
-        margin-left: auto;
-    }
-}
-</style>

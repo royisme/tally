@@ -22,6 +22,14 @@ export default {
     next: "Next",
     prev: "Previous",
     user: "User",
+    freelancer: "Freelancer",
+  },
+
+  // Sidebar
+  sidebar: {
+    features: "Features",
+    configuration: "Configuration",
+    premium: "Premium",
   },
 
   // Splash Screen

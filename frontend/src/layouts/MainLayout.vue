@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, type Component } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -7,10 +7,10 @@ import { useStatusBarStore } from '@/stores/statusBar'
 import { useSettingsStore } from '@/stores/settings'
 import { useI18n } from 'vue-i18n'
 import {
-    GlobalOutlined,
-    BulbOutlined,
-    BulbFilled
-} from '@vicons/antd'
+    Globe,
+    Sun,
+    Moon
+} from 'lucide-vue-next'
 import { allModules, isModuleEnabled, normalizeModuleOverrides } from '@/modules/registry'
 import type { ModuleNavItem } from '@/modules/types'
 import { Button } from '@/components/ui/button'
@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import AppSidebar from '@/components/app-sidebar/AppSidebar.vue'
-import type { NavItem } from '@/components/app-sidebar/AppSidebarNav.vue'
+import type { NavItem } from '@/components/app-sidebar/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -64,8 +64,8 @@ function handleSwitchUser() {
 }
 
 const userData = computed(() => ({
-    name: authStore.username || 'User',
-    email: 'Freelancer',
+    name: authStore.username || t('common.user'),
+    email: t('common.freelancer'),
     avatar: authStore.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${authStore.username}`
 }))
 
@@ -101,11 +101,10 @@ const platformItems = computed<NavItem[]>(() => {
 
 const configurationItems = computed<NavItem[]>(() => {
     const settingsModule = allModules.find((m) => m.id === 'settings')
-    if (!settingsModule || !settingsModule.nav || !settingsModule.nav.children) return []
+    if (!settingsModule || !settingsModule.nav) return []
 
-    // Map children of settings module
-    return settingsModule.nav.children
-        .map((child) => toNavItem(child))
+    // Return the settings module nav item itself (which contains children)
+    return [toNavItem(settingsModule.nav)]
 })
 
 onMounted(() => {
@@ -133,7 +132,7 @@ onMounted(() => {
                     <DropdownMenu>
                         <DropdownMenuTrigger as-child>
                             <Button variant="ghost" size="icon" class="rounded-full">
-                                <GlobalOutlined class="h-5 w-5" />
+                                <Globe class="h-5 w-5" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -150,8 +149,8 @@ onMounted(() => {
                             <TooltipTrigger as-child>
                                 <Button variant="ghost" size="icon" class="rounded-full"
                                     @click="appStore.toggleTheme()">
-                                    <BulbFilled v-if="appStore.theme === 'dark'" class="h-5 w-5" />
-                                    <BulbOutlined v-else class="h-5 w-5" />
+                                    <Sun v-if="appStore.theme === 'dark'" class="h-5 w-5" />
+                                    <Moon v-else class="h-5 w-5" />
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>

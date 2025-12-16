@@ -9,12 +9,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar'
 import { ChevronsUpDown, LogOut, Sparkles } from 'lucide-vue-next'
-
-interface UserData {
-    name: string
-    email: string
-    avatar: string
-}
+import type { UserData } from './types'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
     user: UserData
@@ -24,6 +20,8 @@ const emit = defineEmits<{
     (e: 'logout'): void
     (e: 'profile'): void
 }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -48,12 +46,12 @@ const emit = defineEmits<{
                     align="end" :side-offset="4">
                     <DropdownMenuItem @click="emit('profile')">
                         <Sparkles class="mr-2 h-4 w-4" />
-                        Switch Account
+                        {{ t('auth.switchUser') }}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem @click="emit('logout')">
                         <LogOut class="mr-2 h-4 w-4" />
-                        Log out
+                        {{ t('auth.logout') }}
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

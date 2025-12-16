@@ -1,14 +1,9 @@
 <script setup lang="ts">
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from '@/components/ui/sidebar'
 import AppSidebarHeader from './AppSidebarHeader.vue'
-import AppSidebarNav, { type NavItem } from './AppSidebarNav.vue'
+import AppSidebarNav from './AppSidebarNav.vue'
 import AppSidebarFooter from './AppSidebarFooter.vue'
-
-interface UserData {
-    name: string
-    email: string
-    avatar: string
-}
+import type { NavItem, UserData } from './types'
 
 defineProps<{
     features: NavItem[]

@@ -16,25 +16,20 @@ import {
     CollapsibleTrigger
 } from '@/components/ui/collapsible'
 import { ChevronRight } from 'lucide-vue-next'
-import type { Component } from 'vue'
-
-export interface NavItem {
-    title: string
-    url: string
-    icon?: Component
-    isActive?: boolean
-    children?: NavItem[]
-}
+import type { NavItem } from './types'
+import { useI18n } from 'vue-i18n'
 
 defineProps<{
     features: NavItem[]
     settings: NavItem[]
 }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
     <SidebarGroup>
-        <SidebarGroupLabel>Features</SidebarGroupLabel>
+        <SidebarGroupLabel>{{ t('sidebar.features') }}</SidebarGroupLabel>
         <SidebarMenu>
             <template v-for="item in features" :key="item.title">
                 <Collapsible v-if="item.children?.length" as-child :default-open="item.isActive"
@@ -78,7 +73,7 @@ defineProps<{
     <SidebarSeparator class="mx-2 my-2" />
 
     <SidebarGroup class="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Settings</SidebarGroupLabel>
+        <SidebarGroupLabel>{{ t('sidebar.configuration') }}</SidebarGroupLabel>
         <SidebarMenu>
             <template v-for="item in settings" :key="item.title">
                 <Collapsible v-if="item.children?.length" as-child :default-open="item.isActive"

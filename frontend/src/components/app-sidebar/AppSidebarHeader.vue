@@ -1,27 +1,24 @@
 <script setup lang="ts">
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar'
-import { GalleryVerticalEnd } from 'lucide-vue-next'
+import { Command } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 
-defineProps<{
-    title?: string
-    subtitle?: string
-}>()
+const { t } = useI18n()
 </script>
 
 <template>
     <SidebarMenu>
         <SidebarMenuItem>
-            <SidebarMenuButton size="lg" as-child>
-                <a href="#">
-                    <div
-                        class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                        <GalleryVerticalEnd class="size-4" />
-                    </div>
-                    <div class="grid flex-1 text-left text-sm leading-tight">
-                        <span class="truncate font-semibold">{{ title || 'FreelanceFlow' }}</span>
-                        <span class="truncate text-xs">{{ subtitle || 'Premium' }}</span>
-                    </div>
-                </a>
+            <SidebarMenuButton size="lg"
+                class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+                <div
+                    class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                    <Command class="size-4" />
+                </div>
+                <div class="grid flex-1 text-left text-sm leading-tight">
+                    <span class="truncate font-semibold">FreelanceFlow</span>
+                    <span class="truncate text-xs">{{ t('sidebar.premium') }}</span>
+                </div>
             </SidebarMenuButton>
         </SidebarMenuItem>
     </SidebarMenu>

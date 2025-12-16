@@ -22,6 +22,14 @@ export default {
     next: "下一步",
     prev: "上一步",
     user: "用户",
+    freelancer: "自由职业者",
+  },
+
+  // 侧边栏
+  sidebar: {
+    features: "功能",
+    configuration: "配置",
+    premium: "高级版",
   },
 
   // 启动画面

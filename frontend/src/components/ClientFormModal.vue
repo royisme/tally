@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { watch, computed } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useI18n } from 'vue-i18n'
@@ -60,12 +60,12 @@ const form = useForm({
   validationSchema: formSchema,
 })
 
-const currencyOptions = [
-  { label: 'USD - US Dollar', value: 'USD' },
-  { label: 'CAD - Canadian Dollar', value: 'CAD' },
-  { label: 'EUR - Euro', value: 'EUR' },
-  { label: 'GBP - British Pound', value: 'GBP' }
-]
+const currencyOptions = computed(() => [
+  { label: `USD - ${t('settings.general.options.currency.usd')}`, value: 'USD' },
+  { label: `CAD - ${t('settings.general.options.currency.cad')}`, value: 'CAD' },
+  { label: `EUR - ${t('settings.general.options.currency.eur')}`, value: 'EUR' },
+  { label: `GBP - ${t('settings.general.options.currency.gbp')}`, value: 'GBP' },
+])
 
 const statusOptions = [
   { label: t('clients.status.active'), value: 'active' },
@@ -253,7 +253,7 @@ const onSubmit = form.handleSubmit((values) => {
                   <Select v-bind="componentField">
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select currency" />
+                        <SelectValue :placeholder="t('form.client.currencyPlaceholder')" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -272,7 +272,7 @@ const onSubmit = form.handleSubmit((values) => {
                   <Select v-bind="componentField">
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
+                        <SelectValue :placeholder="t('form.client.statusPlaceholder')" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

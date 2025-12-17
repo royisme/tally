@@ -580,7 +580,7 @@ const allSelected = computed(() => {
             <FormItem>
               <FormLabel>{{ t('invoices.form.invoiceNumber') }}</FormLabel>
               <FormControl>
-                <Input v-bind="componentField" placeholder="INV-001" />
+                <Input v-bind="componentField" :placeholder="t('invoices.form.invoiceNumberPlaceholder')" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -595,7 +595,7 @@ const allSelected = computed(() => {
                   <FormControl>
                     <Button variant="outline"
                       :class="cn('w-full pl-3 text-left font-normal', !issueDateValue && 'text-muted-foreground')">
-                      <span>{{ issueDateValue ? issueDateValue.toString() : "Pick a date" }}</span>
+                      <span>{{ issueDateValue ? issueDateValue.toString() : t('common.pickDate') }}</span>
                       <CalendarIcon class="ml-auto h-4 w-4 opacity-50" />
                     </Button>
                   </FormControl>
@@ -617,7 +617,7 @@ const allSelected = computed(() => {
                   <FormControl>
                     <Button variant="outline"
                       :class="cn('w-full pl-3 text-left font-normal', !dueDateValue && 'text-muted-foreground')">
-                      <span>{{ dueDateValue ? dueDateValue.toString() : "Pick a date" }}</span>
+                      <span>{{ dueDateValue ? dueDateValue.toString() : t('common.pickDate') }}</span>
                       <CalendarIcon class="ml-auto h-4 w-4 opacity-50" />
                     </Button>
                   </FormControl>

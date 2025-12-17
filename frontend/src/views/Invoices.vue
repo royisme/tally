@@ -250,7 +250,7 @@ function formatCurrency(value: number) {
           <p class="text-sm text-muted-foreground">{{ t('invoices.stats.outstandingAmount') }}</p>
           <p class="text-2xl font-bold tabular-nums">
             {{ formatCurrency(stats.totalDue) }}
-            <span class="text-sm font-medium text-muted-foreground ml-1">USD</span>
+            <span class="text-sm font-medium text-muted-foreground ml-1">{{ t('common.currencyCode.usd') }}</span>
           </p>
         </div>
       </div>
@@ -362,12 +362,12 @@ function formatCurrency(value: number) {
                       <AlertDialogHeader>
                         <AlertDialogTitle>{{ t('common.confirmDelete') }}</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete invoice {{ row.number }}.
+                          {{ t('invoices.deleteConfirmDescription', { number: row.number }) }}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction @click="handleDelete(row)">Delete</AlertDialogAction>
+                        <AlertDialogCancel>{{ t('common.cancel') }}</AlertDialogCancel>
+                        <AlertDialogAction @click="handleDelete(row)">{{ t('common.delete') }}</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -395,7 +395,7 @@ function formatCurrency(value: number) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{{ t('invoices.preparePdf.title') }}</DialogTitle>
-          <DialogDescription>Customize the message to include in the PDF invoice.</DialogDescription>
+          <DialogDescription>{{ t('invoices.preparePdf.description') }}</DialogDescription>
         </DialogHeader>
         <Textarea v-model="messageDraft" :placeholder="t('invoices.preparePdf.messagePlaceholder')"
           class="min-h-[120px]" />

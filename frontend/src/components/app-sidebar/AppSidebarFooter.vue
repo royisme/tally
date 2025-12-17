@@ -11,6 +11,7 @@ import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui
 import { ChevronsUpDown, LogOut, Sparkles } from 'lucide-vue-next'
 import type { UserData } from './types'
 import { useI18n } from 'vue-i18n'
+import { computed } from 'vue'
 
 const props = defineProps<{
     user: UserData
@@ -22,6 +23,18 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+function getInitials(name: string): string {
+    const trimmed = name.trim()
+    if (!trimmed) return t('common.user').slice(0, 1)
+    const parts = trimmed.split(/\s+/).filter(Boolean)
+    if (parts.length >= 2) {
+        return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')
+    }
+    return trimmed.slice(0, 2)
+}
+
+const avatarFallbackText = computed(() => getInitials(props.user.name).toUpperCase())
 </script>
 
 <template>
@@ -33,7 +46,7 @@ const { t } = useI18n()
                         class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground border border-sidebar-border bg-sidebar-accent/10 hover:bg-sidebar-accent/20 transition-colors">
                         <Avatar class="h-8 w-8 rounded-lg">
                             <AvatarImage :src="user.avatar" :alt="user.name" />
-                            <AvatarFallback class="rounded-lg">CN</AvatarFallback>
+                            <AvatarFallback class="rounded-lg">{{ avatarFallbackText }}</AvatarFallback>
                         </Avatar>
                         <div class="grid flex-1 text-left text-sm leading-tight">
                             <span class="truncate font-semibold">{{ user.name }}</span>

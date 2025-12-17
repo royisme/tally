@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
+import { computed } from 'vue'
 import { Languages, Moon, Sun } from 'lucide-vue-next'
 import TallyLogo from '@/components/TallyLogo.vue'
 import { Button } from '@/components/ui/button'
@@ -22,10 +23,10 @@ const appStore = useAppStore()
 const { t } = useI18n()
 
 // Locale Options
-const localeOptions = [
-    { label: '中文 (简体)', key: 'zh-CN' },
-    { label: 'English', key: 'en-US' }
-]
+const localeOptions = computed(() => [
+    { label: t('settings.general.options.language.zhCN'), key: 'zh-CN' as const },
+    { label: t('settings.general.options.language.enUS'), key: 'en-US' as const },
+])
 
 function handleLocaleSelect(key: 'zh-CN' | 'en-US') {
     appStore.setLocale(key)

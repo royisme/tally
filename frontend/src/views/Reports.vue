@@ -77,7 +77,7 @@ async function loadReport() {
 
     report.value = await api.reports.get(filter);
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "Failed to load report";
+    error.value = e instanceof Error ? e.message : t("reports.loadError");
     report.value = null;
   } finally {
     loading.value = false;
@@ -197,7 +197,7 @@ const totalPages = computed(() => {
         </div>
 
         <Alert v-else-if="error" variant="destructive" class="mb-4">
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>{{ t("common.error") }}</AlertTitle>
           <AlertDescription>{{ error }}</AlertDescription>
         </Alert>
 
@@ -241,14 +241,14 @@ const totalPages = computed(() => {
               <!-- Pagination -->
               <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t">
                 <span class="text-sm text-muted-foreground">
-                  Page {{ currentPage }} of {{ totalPages }} ({{ report.rows.length }} rows)
+                  {{ t("reports.pagination.pageInfo", { current: currentPage, total: totalPages, rows: report.rows.length }) }}
                 </span>
                 <div class="flex gap-2">
                   <Button variant="outline" size="sm" :disabled="currentPage === 1" @click="currentPage--">
-                    Previous
+                    {{ t("common.prev") }}
                   </Button>
                   <Button variant="outline" size="sm" :disabled="currentPage === totalPages" @click="currentPage++">
-                    Next
+                    {{ t("common.next") }}
                   </Button>
                 </div>
               </div>

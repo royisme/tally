@@ -223,7 +223,7 @@ const onSubmit = form.handleSubmit((values) => {
                 <FormControl>
                   <Button variant="outline"
                     :class="cn('w-full pl-3 text-left font-normal', !dateValue && 'text-muted-foreground')">
-                    <span>{{ dateValue ? dateValue.toString() : "Pick a date" }}</span>
+                    <span>{{ dateValue ? dateValue.toString() : t('common.pickDate') }}</span>
                     <CalendarIcon class="ml-auto h-4 w-4 opacity-50" />
                   </Button>
                 </FormControl>
@@ -239,7 +239,7 @@ const onSubmit = form.handleSubmit((values) => {
         <!-- Duration -->
         <FormField name="durationSeconds">
           <FormItem>
-            <FormLabel>{{ t('timesheet.form.duration') }} (Hours)</FormLabel>
+            <FormLabel>{{ t('timesheet.form.duration') }}</FormLabel>
             <FormControl>
               <Input type="number" step="0.25" min="0" v-model="durationHours" placeholder="0.00" />
             </FormControl>

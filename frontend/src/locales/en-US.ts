@@ -9,10 +9,16 @@ export default {
     saved: "Saved",
     saving: "Saving...",
     cancel: "Cancel",
+    close: "Close",
     confirm: "Confirm",
+    error: "Error",
+    breadcrumb: "Breadcrumb",
+    pickDate: "Pick a date",
+    pickDateRange: "Pick a date range",
     confirmDelete: "Are you sure you want to delete this item?",
     refresh: "Refresh",
     loading: "Loading...",
+    comingSoon: "Coming soon...",
     noData: "No data",
     today: "Today",
     yesterday: "Yesterday",
@@ -24,6 +30,9 @@ export default {
     prev: "Previous",
     user: "User",
     freelancer: "Freelancer",
+    currencyCode: {
+      usd: "USD",
+    },
   },
 
   // Sidebar
@@ -31,6 +40,41 @@ export default {
     features: "Features",
     configuration: "Configuration",
     premium: "Premium",
+    toggle: "Toggle Sidebar",
+    mobile: {
+      title: "Sidebar",
+      description: "Displays the mobile sidebar.",
+    },
+  },
+
+  table: {
+    pagination: {
+      selectedRows: "{selected} of {total} row(s) selected.",
+      rowsPerPage: "Rows per page",
+      pageInfo: "Page {current} of {total}",
+      firstPage: "Go to first page",
+      prevPage: "Go to previous page",
+      nextPage: "Go to next page",
+      lastPage: "Go to last page",
+    },
+  },
+
+  update: {
+    title: "Update Available",
+    errorPrefix: "Error:",
+    releasedOn: "Released on {date}",
+    downloading: "Downloading Update...",
+    downloadComplete: "Download Complete!",
+    readyToInstall: "The update is ready to be installed.",
+    installInstructionsTitle: "Installation Instructions:",
+    installInstructions: {
+      step1: 'Click "Install Update" below to open the disk image.',
+      step2: "Drag the application to your Applications folder.",
+      step3: "Restart the application.",
+    },
+    skipThisVersion: "Skip This Version",
+    downloadUpdate: "Download Update",
+    installUpdate: "Install Update",
   },
 
   // Splash Screen
@@ -39,6 +83,11 @@ export default {
     initializing: "Initializing...",
     start: "Start",
     welcomeBack: "Welcome back, entering your workspace...",
+    taglines: {
+      empower: "Empower your freelance journey.",
+      trackTime: "Track time. Manage clients. Invoice smart.",
+      yourWork: "Your work. Your rules.",
+    },
     progress: {
       backendInit: "Initializing backend",
       updateCheck: "Checking updates",
@@ -54,6 +103,8 @@ export default {
     selectUser: "Select your profile to continue",
     addUser: "Add User",
     enterPassword: "Enter password",
+    loggingIn: "Logging in...",
+    avatarFallbackAlt: "Avatar fallback",
     login: "Login",
     invalidPassword: "Invalid password",
     createAccount: "Create Account",
@@ -78,6 +129,7 @@ export default {
     currency: "Currency",
     province: "Province/Region (for tax)",
     timezone: "Timezone",
+    timezonePlaceholder: "Select timezone",
     // Step form
     stepProfile: "Profile",
     stepSecurity: "Security",
@@ -117,6 +169,13 @@ export default {
     title: "Timesheet",
     subtitle: "Track and log your billable hours",
     loadError: "Failed to load time entries",
+    messages: {
+      logged: "Time logged",
+      deleteError: "Failed to delete entry",
+      saveError: "Failed to save time entry",
+      exportCsvSuccess: "CSV exported successfully",
+      exportCsvError: "Failed to export CSV",
+    },
     logTime: "Log Time",
     noEntries: "No time entries yet",
     noEntriesHint: "Start the timer above or add time manually",
@@ -130,6 +189,7 @@ export default {
       discard: "Discard timer",
       discardedMsg: "Timer discarded",
       loggedMsg: "Time logged successfully!",
+      noDescription: "No description",
       selectProjectFirst: "Please select a project first",
     },
     // Quick Entry
@@ -278,6 +338,8 @@ export default {
     deleteSuccess: "Invoice deleted successfully",
     deleteError: "Failed to delete invoice",
     saveError: "Failed to save invoice",
+    deleteConfirmDescription:
+      "This action cannot be undone. This will permanently delete invoice {number}.",
     downloading: "Downloading {number}...",
     entriesUpdated: "Entries updated successfully",
     searchPlaceholder: "Search invoices...",
@@ -314,6 +376,7 @@ export default {
     },
     preparePdf: {
       title: "Prepare PDF",
+      description: "Customize the message to include in the PDF invoice.",
       positive: "Download PDF",
       negative: "Cancel",
       messagePlaceholder: "Custom message to display on the invoice...",
@@ -347,6 +410,7 @@ export default {
       selectProject: "Select project",
       status: "Status",
       invoiceNumber: "Invoice Number",
+      invoiceNumberPlaceholder: "INV-001",
       issueDate: "Issue Date",
       dueDate: "Due Date",
       timeEntries: {
@@ -407,7 +471,9 @@ export default {
       address: "Address",
       addressPlaceholder: "Full address",
       currency: "Currency",
+      currencyPlaceholder: "Select currency",
       status: "Status",
+      statusPlaceholder: "Select status",
       notes: "Notes",
       notesPlaceholder: "Additional notes",
       tabs: {
@@ -433,11 +499,23 @@ export default {
       namePlaceholder: "Enter project name",
       description: "Description",
       descriptionPlaceholder: "Project description",
+      serviceType: "Service Type",
+      serviceTypePlaceholder: "Select type",
       hourlyRate: "Hourly Rate",
       currency: "Currency",
+      currencyPlaceholder: "Select currency",
       status: "Status",
+      statusPlaceholder: "Select status",
       deadline: "Deadline",
       tags: "Tags",
+      tagsPlaceholder: "Tags (comma separated)",
+      serviceTypes: {
+        softwareDevelopment: "Software Development",
+        systemMaintenance: "System Maintenance",
+        consulting: "Consulting",
+        design: "Design",
+        other: "Other",
+      },
     },
   },
 
@@ -465,11 +543,15 @@ export default {
   reports: {
     title: "Reports",
     subtitle: "Deep insights into your business performance",
+    loadError: "Failed to load report",
     filters: {
       dateRange: "Select date range",
       client: "Client",
       project: "Project",
       apply: "Apply",
+    },
+    pagination: {
+      pageInfo: "Page {current} of {total} ({rows} rows)",
     },
     stats: {
       totalHours: "Total Hours",
@@ -613,6 +695,7 @@ export default {
           cad: "Canadian Dollar",
           cny: "Chinese Yuan",
           eur: "Euro",
+          gbp: "British Pound",
         },
       },
       validation: {
@@ -632,6 +715,8 @@ export default {
         messages: {
           saved: "Saved module settings",
           saveError: "Failed to save module settings",
+          restartRequired:
+            "Settings saved. Please restart the application for changes to take effect.",
         },
       },
     },

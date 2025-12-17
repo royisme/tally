@@ -12,7 +12,7 @@ const { t } = useI18n()
         <CardTitle>{{ t('finance.import.title') }}</CardTitle>
       </CardHeader>
       <CardContent>
-        <p>Coming soon...</p>
+        <p>{{ t('common.comingSoon') }}</p>
       </CardContent>
     </Card>
   </div>

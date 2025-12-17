@@ -96,7 +96,7 @@ onMounted(() => {
               </template>
               <TableRow v-else>
                 <TableCell colspan="5" class="h-24 text-center">
-                  {{ loading ? 'Loading...' : t('common.noData') }}
+                  {{ loading ? t('common.loading') : t('common.noData') }}
                 </TableCell>
               </TableRow>
             </TableBody>

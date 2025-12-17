@@ -55,7 +55,7 @@ const formSchema = toTypedSchema(
       avatarSeed: z.string()
     })
     .refine((data) => data.password === data.confirmPassword, {
-      message: "Passwords don't match",
+      message: t('auth.passwordsNotMatch'),
       path: ["confirmPassword"],
     })
 )
@@ -79,17 +79,17 @@ const isRegistering = ref(false)
 const registerError = ref<string | null>(null)
 
 // Options
-const languageOptions = [
-  { label: '中文 (简体)', value: 'zh-CN' },
-  { label: 'English', value: 'en-US' }
-]
+const languageOptions = computed(() => [
+  { label: t('settings.general.options.language.zhCN'), value: 'zh-CN' },
+  { label: t('settings.general.options.language.enUS'), value: 'en-US' },
+])
 
-const currencyOptions = [
-  { label: 'CAD - Canadian Dollar', value: 'CAD' },
-  { label: 'USD - US Dollar', value: 'USD' },
-  { label: 'CNY - Chinese Yuan', value: 'CNY' },
-  { label: 'EUR - Euro', value: 'EUR' },
-]
+const currencyOptions = computed(() => [
+  { label: `CAD - ${t('settings.general.options.currency.cad')}`, value: 'CAD' },
+  { label: `USD - ${t('settings.general.options.currency.usd')}`, value: 'USD' },
+  { label: `CNY - ${t('settings.general.options.currency.cny')}`, value: 'CNY' },
+  { label: `EUR - ${t('settings.general.options.currency.eur')}`, value: 'EUR' },
+])
 
 const timezoneOptions = [
   { label: "UTC", value: "UTC" },
@@ -200,7 +200,7 @@ const handleRegister = handleSubmit(async (formValues) => {
             <div class="relative inline-block mb-6 pt-2">
               <Avatar class="w-24 h-24 border-4 border-card shadow-lg">
                 <AvatarImage :src="avatarUrl" />
-                <AvatarFallback>User</AvatarFallback>
+                  <AvatarFallback>{{ t('common.user') }}</AvatarFallback>
               </Avatar>
 
               <TooltipProvider>
@@ -336,7 +336,7 @@ const handleRegister = handleSubmit(async (formValues) => {
                   <Select v-bind="componentField">
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select timezone" />
+                        <SelectValue :placeholder="t('auth.timezonePlaceholder')" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

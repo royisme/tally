@@ -83,10 +83,10 @@ const currentBreadcrumbTitle = computed(() => {
 })
 
 // Locale Options
-const localeOptions = [
-    { label: '中文 (简体)', key: 'zh-CN' },
-    { label: 'English', key: 'en-US' }
-]
+const localeOptions = computed(() => [
+    { label: t('settings.general.options.language.zhCN'), key: 'zh-CN' as const },
+    { label: t('settings.general.options.language.enUS'), key: 'en-US' as const },
+])
 
 function handleLocaleSelect(key: 'zh-CN' | 'en-US') {
     appStore.setLocale(key)

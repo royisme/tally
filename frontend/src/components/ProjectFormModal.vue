@@ -76,7 +76,7 @@ const currencyOptions = [
   { label: 'USD', value: 'USD' },
   { label: 'CAD', value: 'CAD' },
   { label: 'EUR', value: 'EUR' },
-  { label: 'GBP', value: 'GBP' }
+  { label: 'GBP', value: 'GBP' },
 ]
 
 const statusOptions = [
@@ -85,13 +85,13 @@ const statusOptions = [
   { label: t('projects.status.completed'), value: 'completed' }
 ]
 
-const serviceTypeOptions = [
-  { label: 'Software Development', value: 'software_development' },
-  { label: 'System Maintenance', value: 'system_maintenance' },
-  { label: 'Consulting', value: 'consulting' },
-  { label: 'Design', value: 'design' },
-  { label: 'Other', value: 'other' }
-]
+const serviceTypeOptions = computed(() => [
+  { label: t('form.project.serviceTypes.softwareDevelopment'), value: 'software_development' },
+  { label: t('form.project.serviceTypes.systemMaintenance'), value: 'system_maintenance' },
+  { label: t('form.project.serviceTypes.consulting'), value: 'consulting' },
+  { label: t('form.project.serviceTypes.design'), value: 'design' },
+  { label: t('form.project.serviceTypes.other'), value: 'other' },
+])
 
 // Computed for tags handling (array <-> comma separated string)
 const tagsString = computed({
@@ -215,11 +215,11 @@ const onSubmit = form.handleSubmit((values) => {
         <div class="grid grid-cols-2 gap-4">
           <FormField v-slot="{ componentField }" name="serviceType">
             <FormItem>
-              <FormLabel>Service Type</FormLabel>
+              <FormLabel>{{ t('form.project.serviceType') }}</FormLabel>
               <Select v-bind="componentField">
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue :placeholder="t('form.project.serviceTypePlaceholder')" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -238,7 +238,7 @@ const onSubmit = form.handleSubmit((values) => {
               <Select v-bind="componentField">
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue :placeholder="t('form.project.statusPlaceholder')" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -287,7 +287,7 @@ const onSubmit = form.handleSubmit((values) => {
               <Select v-bind="componentField">
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Currency" />
+                    <SelectValue :placeholder="t('form.project.currencyPlaceholder')" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -308,7 +308,7 @@ const onSubmit = form.handleSubmit((values) => {
                   <FormControl>
                     <Button variant="outline"
                       :class="cn('w-full pl-3 text-left font-normal', !dateValue && 'text-muted-foreground')">
-                      <span>{{ dateValue ? dateValue.toString() : "Pick a date" }}</span>
+                      <span>{{ dateValue ? dateValue.toString() : t('common.pickDate') }}</span>
                       <CalendarIcon class="ml-auto h-4 w-4 opacity-50" />
                     </Button>
                   </FormControl>
@@ -326,7 +326,7 @@ const onSubmit = form.handleSubmit((values) => {
           <FormItem>
             <FormLabel>{{ t('form.project.tags') }}</FormLabel>
             <FormControl>
-              <Input v-model="tagsString" placeholder="Tags (comma separated)" />
+              <Input v-model="tagsString" :placeholder="t('form.project.tagsPlaceholder')" />
             </FormControl>
             <FormMessage />
           </FormItem>

@@ -120,7 +120,7 @@ function handleStop() {
 
     emit('stop', {
         projectId: projectId.value!,
-        description: description.value || 'No description',
+        description: description.value || t('timesheet.timer.noDescription'),
         durationSeconds: elapsedSeconds.value
     })
 

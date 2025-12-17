@@ -171,7 +171,7 @@ function toggleBillable() {
                 <PopoverTrigger as-child>
                     <Button variant="ghost" size="sm"
                         :class="cn('h-8 px-2 font-normal', !dateValue && 'text-muted-foreground')">
-                        {{ dateValue ? dateValue.toString() : 'Pick date' }}
+                        {{ dateValue ? dateValue.toString() : t('common.pickDate') }}
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent class="w-auto p-0" align="start">

@@ -75,7 +75,7 @@ async function handleDelete(id: number) {
     await timesheetStore.deleteTimeEntry(id)
     toast.success(t('timesheet.entry.deletedMsg'))
   } catch {
-    toast.error('Failed to delete entry')
+    toast.error(t('timesheet.messages.deleteError'))
   }
 }
 
@@ -87,10 +87,10 @@ async function handleSubmitEntry(entry: Omit<TimeEntry, 'id'> | TimeEntry) {
       toast.success(t('timesheet.entry.updatedMsg'))
     } else {
       await timesheetStore.createTimeEntry(entry)
-      toast.success('Time logged')
+      toast.success(t('timesheet.messages.logged'))
     }
   } catch {
-    toast.error('Failed to save time entry')
+    toast.error(t('timesheet.messages.saveError'))
   }
 }
 
@@ -107,16 +107,16 @@ async function handleQuickEntry(data: { projectId: number; description: string; 
       invoiced: false
     })
   } catch {
-    toast.error('Failed to save entry')
+    toast.error(t('timesheet.messages.saveError'))
   }
 }
 
 function handleExportCSV() {
   try {
     timesheetStore.exportToCSV(timesheetStore.enrichedEntries)
-    toast.success('CSV exported successfully')
+    toast.success(t('timesheet.messages.exportCsvSuccess'))
   } catch {
-    toast.error('Failed to export CSV')
+    toast.error(t('timesheet.messages.exportCsvError'))
   }
 }
 

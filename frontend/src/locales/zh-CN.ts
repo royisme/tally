@@ -9,10 +9,16 @@ export default {
     saved: "已保存",
     saving: "保存中...",
     cancel: "取消",
+    close: "关闭",
     confirm: "确认",
+    error: "错误",
+    breadcrumb: "面包屑导航",
+    pickDate: "选择日期",
+    pickDateRange: "选择日期范围",
     confirmDelete: "确定要删除此项吗？",
     refresh: "刷新",
     loading: "加载中...",
+    comingSoon: "敬请期待...",
     noData: "暂无数据",
     today: "今天",
     yesterday: "昨天",
@@ -24,6 +30,9 @@ export default {
     prev: "上一步",
     user: "用户",
     freelancer: "自由职业者",
+    currencyCode: {
+      usd: "USD",
+    },
   },
 
   // 侧边栏
@@ -31,6 +40,41 @@ export default {
     features: "功能",
     configuration: "配置",
     premium: "高级版",
+    toggle: "切换侧边栏",
+    mobile: {
+      title: "侧边栏",
+      description: "显示移动端侧边栏。",
+    },
+  },
+
+  table: {
+    pagination: {
+      selectedRows: "已选择 {selected} / {total} 行",
+      rowsPerPage: "每页行数",
+      pageInfo: "第 {current} / {total} 页",
+      firstPage: "跳转到第一页",
+      prevPage: "上一页",
+      nextPage: "下一页",
+      lastPage: "跳转到最后一页",
+    },
+  },
+
+  update: {
+    title: "发现新版本",
+    errorPrefix: "错误：",
+    releasedOn: "发布于 {date}",
+    downloading: "正在下载更新...",
+    downloadComplete: "下载完成！",
+    readyToInstall: "更新已准备就绪，可以安装。",
+    installInstructionsTitle: "安装说明：",
+    installInstructions: {
+      step1: "点击下方“安装更新”打开磁盘镜像。",
+      step2: "将应用拖拽到“应用程序”文件夹。",
+      step3: "重启应用。",
+    },
+    skipThisVersion: "跳过此版本",
+    downloadUpdate: "下载更新",
+    installUpdate: "安装更新",
   },
 
   // 启动画面
@@ -39,6 +83,11 @@ export default {
     initializing: "正在初始化...",
     start: "启动",
     welcomeBack: "欢迎回来，正在进入工作台...",
+    taglines: {
+      empower: "掌控自由职业，从这里开始。",
+      trackTime: "时间追踪、客户管理、智能开票。",
+      yourWork: "你的工作，你的规则。",
+    },
     progress: {
       backendInit: "正在初始化后端",
       updateCheck: "正在检查更新",
@@ -54,6 +103,8 @@ export default {
     selectUser: "选择您的账户继续",
     addUser: "添加用户",
     enterPassword: "输入密码",
+    loggingIn: "正在登录...",
+    avatarFallbackAlt: "头像占位图",
     login: "登录",
     invalidPassword: "密码错误",
     createAccount: "创建账户",
@@ -78,6 +129,7 @@ export default {
     currency: "默认货币",
     province: "省份/地区（用于税率）",
     timezone: "时区",
+    timezonePlaceholder: "选择时区",
     // 分步表单
     stepProfile: "资料",
     stepSecurity: "安全",
@@ -117,6 +169,13 @@ export default {
     title: "工时",
     subtitle: "记录和跟踪您的计费工时",
     loadError: "加载工时条目失败",
+    messages: {
+      logged: "工时已记录",
+      deleteError: "删除条目失败",
+      saveError: "保存工时记录失败",
+      exportCsvSuccess: "CSV 导出成功",
+      exportCsvError: "CSV 导出失败",
+    },
     logTime: "记录工时",
     noEntries: "暂无工时记录",
     noEntriesHint: "使用上方计时器或手动添加工时",
@@ -130,6 +189,7 @@ export default {
       discard: "丢弃计时",
       discardedMsg: "计时已丢弃",
       loggedMsg: "工时记录成功！",
+      noDescription: "无描述",
       selectProjectFirst: "请先选择一个项目",
     },
     // 快速录入
@@ -276,6 +336,7 @@ export default {
     deleteSuccess: "发票删除成功",
     deleteError: "删除发票失败",
     saveError: "保存发票失败",
+    deleteConfirmDescription: "此操作无法撤销。这将永久删除发票 {number}。",
     downloading: "正在下载 {number}...",
     entriesUpdated: "工时条目已更新",
     searchPlaceholder: "搜索发票...",
@@ -312,6 +373,7 @@ export default {
     },
     preparePdf: {
       title: "准备 PDF",
+      description: "自定义要包含在 PDF 发票中的消息内容。",
       positive: "下载 PDF",
       negative: "取消",
       messagePlaceholder: "在发票上显示的自定义消息...",
@@ -345,6 +407,7 @@ export default {
       selectProject: "选择项目",
       status: "状态",
       invoiceNumber: "发票号",
+      invoiceNumberPlaceholder: "INV-001",
       issueDate: "开票日期",
       dueDate: "到期日期",
       timeEntries: {
@@ -405,7 +468,9 @@ export default {
       address: "地址",
       addressPlaceholder: "详细地址",
       currency: "货币",
+      currencyPlaceholder: "选择货币",
       status: "状态",
+      statusPlaceholder: "选择状态",
       notes: "备注",
       notesPlaceholder: "额外备注信息",
       tabs: {
@@ -431,11 +496,23 @@ export default {
       namePlaceholder: "输入项目名称",
       description: "描述",
       descriptionPlaceholder: "项目描述",
+      serviceType: "服务类型",
+      serviceTypePlaceholder: "选择类型",
       hourlyRate: "时薪",
       currency: "货币",
+      currencyPlaceholder: "选择货币",
       status: "状态",
+      statusPlaceholder: "选择状态",
       deadline: "截止日期",
       tags: "标签",
+      tagsPlaceholder: "标签（用逗号分隔）",
+      serviceTypes: {
+        softwareDevelopment: "软件开发",
+        systemMaintenance: "系统维护",
+        consulting: "咨询",
+        design: "设计",
+        other: "其他",
+      },
     },
   },
 
@@ -463,11 +540,15 @@ export default {
   reports: {
     title: "报表",
     subtitle: "深入了解您的业务表现",
+    loadError: "加载报表失败",
     filters: {
       dateRange: "选择日期范围",
       client: "客户",
       project: "项目",
       apply: "应用",
+    },
+    pagination: {
+      pageInfo: "第 {current} / {total} 页（共 {rows} 行）",
     },
     stats: {
       totalHours: "总工时",
@@ -611,6 +692,7 @@ export default {
           cad: "加元",
           cny: "人民币",
           eur: "欧元",
+          gbp: "英镑",
         },
       },
       validation: {
@@ -630,6 +712,7 @@ export default {
         messages: {
           saved: "已保存模块设置",
           saveError: "保存模块设置失败",
+          restartRequired: "设置已保存。请重启应用以使更改生效。",
         },
       },
     },

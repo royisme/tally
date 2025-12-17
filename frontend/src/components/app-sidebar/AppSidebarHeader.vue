@@ -13,11 +13,6 @@ const { t } = useI18n()
                 class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
 
                 <TallyLogo />
-
-                <!-- <div class="grid flex-1 text-left text-sm leading-tight">
-                    <span class="truncate font-semibold">Tally</span>
-                    <span class="truncate text-xs">{{ t('sidebar.premium') }}</span>
-                </div> -->
             </SidebarMenuButton>
         </SidebarMenuItem>
     </SidebarMenu>

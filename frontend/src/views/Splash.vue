@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/auth'
@@ -10,7 +10,7 @@ import { useI18n } from 'vue-i18n'
 const router = useRouter()
 const authStore = useAuthStore()
 const bootstrapStore = useBootstrapStore()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const isBackendReady = ref(false)
 const isAutoRedirecting = ref(false)
@@ -18,14 +18,11 @@ const showProgress = computed(() => !isBackendReady.value || isAutoRedirecting.v
 const version = __APP_VERSION__
 
 // Typewriter effect state
-const taglines = [
-  'Empower your freelance journey.',
-  '掌控自由职业，从这里开始。',
-  'Track time. Manage clients. Invoice smart.',
-  '时间追踪、客户管理、智能开票。',
-  'Your work. Your rules.',
-  '你的工作，你的规则。',
-]
+const taglines = computed(() => [
+  t('splash.taglines.empower'),
+  t('splash.taglines.trackTime'),
+  t('splash.taglines.yourWork'),
+])
 
 const currentTaglineIndex = ref(0)
 const displayedText = ref('')
@@ -33,14 +30,14 @@ const isTyping = ref(true)
 let typewriterInterval: ReturnType<typeof setInterval> | null = null
 let pauseTimeout: ReturnType<typeof setTimeout> | null = null
 
-const currentFullText = computed(() => taglines[currentTaglineIndex.value])
+const currentFullText = computed(() => taglines.value[currentTaglineIndex.value] ?? '')
 
 function startTypewriter() {
   let charIndex = 0
   isTyping.value = true
   displayedText.value = ''
 
-  const fullText = currentFullText.value ?? ''
+  const fullText = currentFullText.value
 
   typewriterInterval = setInterval(() => {
     if (charIndex < fullText.length) {
@@ -73,7 +70,8 @@ function startEraser() {
       isTyping.value = false
 
       // Move to next tagline
-      currentTaglineIndex.value = (currentTaglineIndex.value + 1) % taglines.length
+      const total = taglines.value.length || 1
+      currentTaglineIndex.value = (currentTaglineIndex.value + 1) % total
 
       // Small pause then start typing next
       pauseTimeout = setTimeout(() => {
@@ -124,6 +122,21 @@ onMounted(async () => {
 onUnmounted(() => {
   if (typewriterInterval) clearInterval(typewriterInterval)
   if (pauseTimeout) clearTimeout(pauseTimeout)
+})
+
+function restartTypewriter() {
+  if (typewriterInterval) clearInterval(typewriterInterval)
+  if (pauseTimeout) clearTimeout(pauseTimeout)
+  typewriterInterval = null
+  pauseTimeout = null
+  currentTaglineIndex.value = 0
+  displayedText.value = ''
+  startTypewriter()
+}
+
+watch(locale, () => {
+  // Ensure we don't mix languages mid-typing when user switches locale
+  restartTypewriter()
 })
 
 function handleStart() {

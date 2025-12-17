@@ -93,7 +93,8 @@ function goToRegister() {
             <Avatar class="h-20 w-20">
               <AvatarImage :src="user.avatarUrl" :alt="user.username" />
               <AvatarFallback>
-                <img :src="`https://api.dicebear.com/9.x/avataaars/svg?seed=${user.username}`" :alt="t('auth.avatarFallbackAlt')" />
+                <img :src="`https://api.dicebear.com/9.x/avataaars/svg?seed=${user.username}`"
+                  :alt="t('auth.avatarFallbackAlt')" />
               </AvatarFallback>
             </Avatar>
             <span class="text-sm font-medium text-foreground">{{ user.username }}</span>
@@ -116,7 +117,8 @@ function goToRegister() {
           <Avatar class="h-[100px] w-[100px]">
             <AvatarImage :src="selectedUser.avatarUrl" :alt="selectedUser.username" />
             <AvatarFallback>
-              <img :src="`https://api.dicebear.com/9.x/avataaars/svg?seed=${selectedUser.username}`" :alt="t('auth.avatarFallbackAlt')" />
+              <img :src="`https://api.dicebear.com/9.x/avataaars/svg?seed=${selectedUser.username}`"
+                :alt="t('auth.avatarFallbackAlt')" />
             </AvatarFallback>
           </Avatar>
           <h2 class="font-(family-name:--font-heading) text-2xl font-semibold m-0 text-foreground">{{
@@ -128,7 +130,8 @@ function goToRegister() {
                 <FormItem>
                   <FormControl>
                     <div class="relative items-center">
-                      <Input type="password" :placeholder="t('auth.passwordPlaceholder')" v-bind="componentField" class="pl-10" />
+                      <Input type="password" :placeholder="t('auth.passwordPlaceholder')" v-bind="componentField"
+                        class="pl-10" />
                       <span class="absolute start-0 inset-y-0 flex items-center justify-center px-2">
                         <Lock class="size-4 text-muted-foreground" />
                       </span>
@@ -141,10 +144,10 @@ function goToRegister() {
               <p v-if="loginError" class="text-destructive text-center text-sm font-medium">{{ loginError }}</p>
 
               <div class="flex gap-3 mt-3">
-                <Button type="submit" class="w-full" size="lg" :disabled="isLoggingIn">
+                <Button type="submit" class="flex-1" size="lg" :disabled="isLoggingIn">
                   {{ isLoggingIn ? t('auth.loggingIn') : t('auth.login') }}
                 </Button>
-                <Button type="button" variant="outline" size="lg" @click="cancelSelection">
+                <Button type="button" variant="outline" size="lg" class="flex-1" @click="cancelSelection">
                   {{ t('common.cancel') }}
                 </Button>
               </div>

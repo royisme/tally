@@ -177,7 +177,7 @@ body {
 
 /* Improve label contrast inside glass-card */
 .glass-card label,
-.glass-card .text-sm,
+.glass-card :not([data-slot="button"]).text-sm,
 .glass-card h1,
 .glass-card h2,
 .glass-card p {

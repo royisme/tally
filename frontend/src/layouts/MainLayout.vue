@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { RouterView, useRouter, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useStatusBarStore } from '@/stores/statusBar'
-import { useSettingsStore } from '@/stores/settings'
+import { useUserPreferencesStore } from '@/stores/userPreferences'
 import { useI18n } from 'vue-i18n'
 import {
     Globe,
@@ -35,8 +35,10 @@ import { Separator } from '@/components/ui/separator'
 import {
     Breadcrumb,
     BreadcrumbItem,
+    BreadcrumbLink,
     BreadcrumbList,
     BreadcrumbPage,
+    BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import AppSidebar from '@/components/app-sidebar/AppSidebar.vue'
 import type { NavItem } from '@/components/app-sidebar/types'
@@ -46,41 +48,13 @@ const route = useRoute()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const statusBarStore = useStatusBarStore()
-const settingsStore = useSettingsStore()
+const preferencesStore = useUserPreferencesStore()
 const { t } = useI18n()
 
-const currentBreadcrumbTitle = computed(() => {
-    // 1. Try module based title
-    if (route.meta.moduleID) {
-        // Find module
-        const mod = allModules.find(m => m.id === route.meta.moduleID)
-        // For sub-pages (e.g. settings/general), strict match is needed?
-        // Actually moduleID is shared by all pages in module.
-        // So for "settings", we might want the specific child?
-        // But for now, let's just use the module label or child label if possible?
-
-        // Improve: find the specific nav item that matches the route?
-        if (mod) {
-            // If module has direct nav
-            if (mod.nav && !mod.nav.children) {
-                return t(mod.nav.labelKey)
-            }
-            // If module has children logic (Settings)
-            if (mod.id === 'settings') {
-                // Return "Settings" or maybe specific page?
-                // For "Settings", let's just return "Settings" for now, or match the child?
-                // The settings children keys are `settings/general`.
-                // For simplicity, return module label which is "Settings".
-                return t(mod.nav?.labelKey || '')
-            }
-            if (mod.nav) {
-                return t(mod.nav.labelKey)
-            }
-        }
-    }
-    // 2. Fallback
-    return ''
-})
+type BreadcrumbCrumb = {
+    title: string
+    url?: string
+}
 
 // Locale Options
 const localeOptions = computed(() => [
@@ -130,7 +104,7 @@ function toNavItem(item: ModuleNavItem): NavItem {
 }
 
 const platformItems = computed<NavItem[]>(() => {
-    const overrides = normalizeModuleOverrides(settingsStore.settings?.moduleOverrides)
+    const overrides = normalizeModuleOverrides(preferencesStore.preferences?.moduleOverrides)
     return allModules
         .filter((m) => m.id !== 'settings') // Exclude settings
         .filter((m) => m.nav)
@@ -144,7 +118,7 @@ const configurationItems = computed<NavItem[]>(() => {
 
     // 1. Get settings nav
     // 2. Filter its children based on registry definition
-    const overrides = normalizeModuleOverrides(settingsStore.settings?.moduleOverrides)
+    const overrides = normalizeModuleOverrides(preferencesStore.preferences?.moduleOverrides)
     const filteredChildren = settingsModule.nav.children?.filter(child => {
         if (!child.moduleID) return true // Always show if no module ID
         return isModuleIDEnabled(child.moduleID, overrides)
@@ -157,6 +131,56 @@ const configurationItems = computed<NavItem[]>(() => {
     })
 
     return [navItem]
+})
+
+function isPathMatch(navUrl: string, currentPath: string): boolean {
+    return currentPath === navUrl || currentPath.startsWith(navUrl + '/')
+}
+
+function findBestNavPath(items: NavItem[], currentPath: string): NavItem[] {
+    let best: NavItem[] = []
+
+    for (const item of items) {
+        if (!isPathMatch(item.url, currentPath)) continue
+
+        let candidate: NavItem[] = [item]
+        if (item.children && item.children.length > 0) {
+            const childBest = findBestNavPath(item.children, currentPath)
+            if (childBest.length > 0) candidate = [item, ...childBest]
+        }
+
+        const candidateDepth = candidate.length
+        const bestDepth = best.length
+        const candidateSpecificity = candidate[candidate.length - 1]?.url.length ?? 0
+        const bestSpecificity = best[best.length - 1]?.url.length ?? 0
+
+        if (
+            candidateDepth > bestDepth ||
+            (candidateDepth === bestDepth && candidateSpecificity > bestSpecificity)
+        ) {
+            best = candidate
+        }
+    }
+
+    return best
+}
+
+const breadcrumbs = computed<BreadcrumbCrumb[]>(() => {
+    const navRoot = [...platformItems.value, ...configurationItems.value]
+    const navPath = findBestNavPath(navRoot, route.path)
+
+    if (navPath.length > 0) {
+        return navPath.map((n) => ({ title: n.title, url: n.url }))
+    }
+
+    if (route.meta.moduleID) {
+        const mod = allModules.find((m) => m.id === route.meta.moduleID)
+        if (mod?.nav?.labelKey) {
+            return [{ title: t(mod.nav.labelKey) }]
+        }
+    }
+
+    return []
 })
 
 onMounted(() => {
@@ -174,16 +198,22 @@ onMounted(() => {
             <!-- Header -->
             <header
                 class="flex h-16 shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-                <div class="flex items-center gap-2 px-4">
+                <div class="flex items-center gap-2">
                     <SidebarTrigger class="-ml-1" />
-                    <Separator orientation="vertical" class="mr-2 h-4" />
+                    <Separator orientation="vertical" class="h-4" />
                     <Breadcrumb>
                         <BreadcrumbList>
-                            <BreadcrumbItem>
-                                <BreadcrumbPage>
-                                    {{ currentBreadcrumbTitle }}
-                                </BreadcrumbPage>
-                            </BreadcrumbItem>
+                            <template v-for="(crumb, idx) in breadcrumbs" :key="crumb.url ?? `${crumb.title}-${idx}`">
+                                <BreadcrumbItem>
+                                    <BreadcrumbLink v-if="crumb.url && idx < breadcrumbs.length - 1" as-child>
+                                        <RouterLink :to="crumb.url">{{ crumb.title }}</RouterLink>
+                                    </BreadcrumbLink>
+                                    <BreadcrumbPage v-else>
+                                        {{ crumb.title }}
+                                    </BreadcrumbPage>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator v-if="idx < breadcrumbs.length - 1" />
+                            </template>
                         </BreadcrumbList>
                     </Breadcrumb>
                 </div>

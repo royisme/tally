@@ -1,3 +1,4 @@
+```
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useForm } from 'vee-validate'
@@ -7,7 +8,7 @@ import { api } from '@/api'
 import type { Invoice, Client, Project, TimeEntry } from '@/types'
 import { dto } from '@/wailsjs/go/models'
 import { invoiceSchema } from '@/schemas/invoice'
-import { useSettingsStore } from '@/stores/settings'
+import { useUserTaxSettingsStore } from '@/stores/userTaxSettings'
 import { Calendar as CalendarIcon } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import {
@@ -76,13 +77,13 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 // const message = useMessage() // Removed: use toast or form errors instead, or mostly validation errors show inline
 const { t } = useI18n()
-const settingsStore = useSettingsStore()
+const taxSettingsStore = useUserTaxSettingsStore()
 
 // HST/Tax settings from user preferences
-const taxEnabled = computed(() => settingsStore.settings?.taxEnabled ?? false)
+const taxEnabled = computed(() => taxSettingsStore.settings?.taxEnabled ?? false)
 const defaultTaxRate = computed(() => {
   if (!taxEnabled.value) return 0
-  return settingsStore.settings?.defaultTaxRate ?? 0.13
+  return 0.13 // Default to 13% as per new tax logic (custom rate removed for now)
 })
 
 type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue'

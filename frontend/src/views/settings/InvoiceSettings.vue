@@ -5,7 +5,8 @@ import { useI18n } from "vue-i18n";
 import { toast } from "vue-sonner";
 import { AlertCircle, Info } from "lucide-vue-next";
 
-import { useSettingsStore } from "@/stores/settings";
+import { useInvoiceSettingsStore } from "@/stores/invoiceSettings";
+import { useUserTaxSettingsStore } from "@/stores/userTaxSettings";
 import { invoiceSettingsSchema } from "@/schemas/settings";
 
 import { Button } from "@/components/ui/button";
@@ -41,29 +42,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { dto } from "@/wailsjs/go/models";
 
-const settingsStore = useSettingsStore();
+const invoiceSettingsStore = useInvoiceSettingsStore();
+const taxSettingsStore = useUserTaxSettingsStore();
 const { t } = useI18n();
 const saving = ref(false);
 
 const formSchema = toTypedSchema(invoiceSettingsSchema);
 
 const initialValues = computed(() => {
-  if (settingsStore.settings) {
-    const s = settingsStore.settings;
+  const inv = invoiceSettingsStore.settings;
+  const tax = taxSettingsStore.settings;
+  
+  if (inv && tax) {
     return {
-      invoiceTerms: s.invoiceTerms,
-      defaultMessageTemplate: s.defaultMessageTemplate,
-      senderName: s.senderName,
-      senderCompany: s.senderCompany,
-      senderAddress: s.senderAddress,
-      senderPhone: s.senderPhone,
-      senderEmail: s.senderEmail,
-      senderPostalCode: s.senderPostalCode,
-      hstRegistered: s.hstRegistered,
-      hstNumber: s.hstNumber,
-      taxEnabled: s.taxEnabled,
-      expectedIncome: s.expectedIncome,
+      // Invoice Settings
+      invoiceTerms: inv.defaultTerms,
+      defaultMessageTemplate: inv.defaultMessageTemplate,
+      senderName: inv.senderName,
+      senderCompany: inv.senderCompany,
+      senderAddress: inv.senderAddress,
+      senderPhone: inv.senderPhone,
+      senderEmail: inv.senderEmail,
+      senderPostalCode: inv.senderPostalCode,
+      
+      // Tax Settings
+      hstRegistered: tax.hstRegistered,
+      hstNumber: tax.hstNumber,
+      taxEnabled: tax.taxEnabled,
+      expectedIncome: tax.expectedIncome,
     };
   }
   return {
@@ -80,24 +88,62 @@ const expectedIncomeOptions = computed(() => [
   { label: t("settings.invoice.hst.incomeOptions.unsure"), value: "unsure" },
 ]);
 
+// Unique key to force form re-render when settings change
+const formKey = computed(() => {
+  if (!invoiceSettingsStore.settings || !taxSettingsStore.settings) return 'loading';
+  // Use a combination of values to create a unique key
+  const i = invoiceSettingsStore.settings;
+  const t = taxSettingsStore.settings;
+  return `loaded-${i.defaultTerms}-${i.senderName}-${t.hstRegistered}`;
+});
+
 onMounted(async () => {
-  await settingsStore.fetchSettings();
+  await Promise.all([
+    invoiceSettingsStore.fetchSettings(),
+    taxSettingsStore.fetchSettings(),
+  ]);
 });
 
 async function onSubmit(formValues: unknown) {
   const values = formValues as any;
   saving.value = true;
   try {
-    const currentSettings = settingsStore.settings;
-    if (!currentSettings) {
+    const currentInvoiceSettings = invoiceSettingsStore.settings;
+    const currentTaxSettings = taxSettingsStore.settings;
+    
+    if (!currentInvoiceSettings || !currentTaxSettings) {
       toast.error(t("settings.invoice.messages.loadError"));
       return;
     }
-    const updatedSettings = {
-      ...currentSettings,
-      ...values,
-    };
-    await settingsStore.saveSettings(updatedSettings);
+
+    // Split values and update separately
+    // Invoice Settings Update
+    const updatedInvoiceSettings = new dto.UserInvoiceSettings({
+      ...currentInvoiceSettings,
+      defaultTerms: values.invoiceTerms,
+      defaultMessageTemplate: values.defaultMessageTemplate,
+      senderName: values.senderName,
+      senderCompany: values.senderCompany,
+      senderAddress: values.senderAddress,
+      senderPhone: values.senderPhone,
+      senderEmail: values.senderEmail,
+      senderPostalCode: values.senderPostalCode,
+    });
+
+    // Tax Settings Update
+    const updatedTaxSettings = new dto.UserTaxSettings({
+      ...currentTaxSettings,
+      hstRegistered: values.hstRegistered,
+      hstNumber: values.hstNumber,
+      taxEnabled: values.taxEnabled,
+      expectedIncome: values.expectedIncome,
+    });
+
+    await Promise.all([
+      invoiceSettingsStore.saveSettings(updatedInvoiceSettings),
+      taxSettingsStore.saveSettings(updatedTaxSettings)
+    ]);
+
     toast.success(t("settings.invoice.messages.saved"));
   } catch (e) {
     toast.error(e instanceof Error ? e.message : t("settings.invoice.messages.saveError"));
@@ -110,7 +156,7 @@ async function onSubmit(formValues: unknown) {
 <template>
   <div class="invoice-settings w-full">
     <Form :validation-schema="formSchema" :initial-values="initialValues" @submit="onSubmit" class="space-y-6"
-      :key="settingsStore.settings ? 'loaded' : 'loading'" v-slot="{ values }">
+      :key="formKey" v-slot="{ values }">
       <Tabs default-value="defaults" class="w-full">
         <TabsList class="grid w-full grid-cols-3">
           <TabsTrigger value="defaults">{{ t('settings.invoice.defaultsCardTitle') }}</TabsTrigger>

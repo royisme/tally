@@ -13,6 +13,9 @@ import * as WailsTimesheetService from "@/wailsjs/go/services/TimesheetService";
 import * as WailsInvoiceService from "@/wailsjs/go/services/InvoiceService";
 import * as WailsSettingsService from "@/wailsjs/go/services/SettingsService";
 import * as WailsInvoiceEmailSettingsService from "@/wailsjs/go/services/InvoiceEmailSettingsService";
+import * as WailsUserPreferencesService from "@/wailsjs/go/services/UserPreferencesService";
+import * as WailsUserTaxSettingsService from "@/wailsjs/go/services/UserTaxSettingsService";
+import * as WailsUserInvoiceSettingsService from "@/wailsjs/go/services/UserInvoiceSettingsService";
 import { useAuthStore } from "@/stores/auth";
 import { dto } from "@/wailsjs/go/models";
 import { dateOnlySortKey } from "@/utils/date";
@@ -145,6 +148,24 @@ const wailsInvoiceEmailSettingsService = {
   export: () => WailsInvoiceEmailSettingsService.ExportSettings(getUserId()),
 };
 
+const wailsUserPreferencesService = {
+  get: () => WailsUserPreferencesService.Get(getUserId()),
+  update: (input: dto.UserPreferences) =>
+    WailsUserPreferencesService.Update(getUserId(), input),
+};
+
+const wailsUserTaxSettingsService = {
+  get: () => WailsUserTaxSettingsService.Get(getUserId()),
+  update: (input: dto.UserTaxSettings) =>
+    WailsUserTaxSettingsService.Update(getUserId(), input),
+};
+
+const wailsUserInvoiceSettingsService = {
+  get: () => WailsUserInvoiceSettingsService.Get(getUserId()),
+  update: (input: dto.UserInvoiceSettings) =>
+    WailsUserInvoiceSettingsService.Update(getUserId(), input),
+};
+
 const wailsStatusBarService = {
   get: () => {
     const wails = window as unknown as {
@@ -175,6 +196,9 @@ export const api = isWailsRuntime
       timeEntries: wailsTimeEntryService,
       invoices: wailsInvoiceService,
       settings: wailsSettingsService,
+      userPreferences: wailsUserPreferencesService,
+      userTaxSettings: wailsUserTaxSettingsService,
+      userInvoiceSettings: wailsUserInvoiceSettingsService,
       reports: wailsReportService,
       invoiceEmailSettings: wailsInvoiceEmailSettingsService,
       statusBar: wailsStatusBarService,
@@ -299,6 +323,34 @@ export const api = isWailsRuntime
             currency: settings.currency,
           };
         },
+      },
+      userPreferences: {
+        get: async () =>
+          new dto.UserPreferences({
+            currency: "USD",
+            language: "en-US",
+            theme: "light",
+            dateFormat: "2006-01-02",
+            timezone: "UTC",
+          }),
+        update: async (input: dto.UserPreferences) => input,
+      },
+      userTaxSettings: {
+        get: async () =>
+          new dto.UserTaxSettings({
+            hstRegistered: false,
+            taxEnabled: false,
+            defaultTaxRate: 0,
+          }),
+        update: async (input: dto.UserTaxSettings) => input,
+      },
+      userInvoiceSettings: {
+        get: async () =>
+          new dto.UserInvoiceSettings({
+            defaultTerms: "Due upon receipt",
+            defaultMessageTemplate: "Thank you for your business.",
+          }),
+        update: async (input: dto.UserInvoiceSettings) => input,
       },
       finance: {
         summary: {

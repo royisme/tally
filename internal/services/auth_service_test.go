@@ -2,8 +2,8 @@ package services
 
 import (
 	"database/sql"
-	"tally/internal/dto"
 	"os"
+	"tally/internal/dto"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -16,9 +16,9 @@ func setupTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
 
-	// Create users table
-	_, err = db.Exec(`
-		CREATE TABLE users (
+	// Initial setup
+	queries := []string{
+		`CREATE TABLE users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			uuid TEXT UNIQUE NOT NULL,
 			username TEXT UNIQUE NOT NULL,
@@ -28,10 +28,65 @@ func setupTestDB(t *testing.T) *sql.DB {
 			created_at TEXT DEFAULT (datetime('now')),
 			last_login TEXT,
 			settings_json TEXT DEFAULT '{}'
-		)
-	`)
-	if err != nil {
-		t.Fatalf("Failed to create users table: %v", err)
+		);`,
+		`CREATE TABLE invoice_email_settings (
+			user_id INTEGER PRIMARY KEY,
+			provider TEXT DEFAULT 'mailto',
+			from_email TEXT,
+			reply_to TEXT,
+			subject_template TEXT,
+			body_template TEXT,
+			signature TEXT,
+			resend_api_key TEXT,
+			smtp_host TEXT,
+			smtp_port INTEGER,
+			smtp_username TEXT,
+			smtp_password TEXT,
+			smtp_use_tls INTEGER DEFAULT 1,
+			updated_at TEXT DEFAULT (datetime('now')),
+			FOREIGN KEY(user_id) REFERENCES users(id)
+		);`,
+		`CREATE TABLE user_preferences (
+			user_id INTEGER PRIMARY KEY,
+			currency TEXT DEFAULT 'USD',
+			language TEXT DEFAULT 'en-US',
+			theme TEXT DEFAULT 'light',
+			timezone TEXT DEFAULT 'UTC',
+			date_format TEXT DEFAULT '2006-01-02',
+			module_overrides_json TEXT DEFAULT '{}',
+			updated_at TEXT DEFAULT (datetime('now')),
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE user_tax_settings (
+			user_id INTEGER PRIMARY KEY,
+			hst_registered INTEGER DEFAULT 0,
+			hst_number TEXT,
+			tax_enabled INTEGER DEFAULT 0,
+			default_tax_rate REAL DEFAULT 0,
+			expected_income TEXT,
+			updated_at TEXT DEFAULT (datetime('now')),
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE user_invoice_settings (
+			user_id INTEGER PRIMARY KEY,
+			sender_name TEXT,
+			sender_company TEXT,
+			sender_address TEXT,
+			sender_phone TEXT,
+			sender_email TEXT,
+			sender_postal_code TEXT,
+			default_terms TEXT DEFAULT 'Due upon receipt',
+			default_message_template TEXT DEFAULT 'Thank you for your business.',
+			updated_at TEXT DEFAULT (datetime('now')),
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
+	}
+
+	for _, query := range queries {
+		_, err = db.Exec(query)
+		if err != nil {
+			t.Fatalf("Failed to create table with query: %s, error: %v", query, err)
+		}
 	}
 
 	return db

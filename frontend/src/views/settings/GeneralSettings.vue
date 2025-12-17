@@ -2,8 +2,9 @@
 import { onMounted, ref, computed } from "vue";
 import { toTypedSchema } from "@vee-validate/zod";
 import { useI18n } from "vue-i18n";
+import { dto } from "@/wailsjs/go/models";
 
-import { useSettingsStore } from "@/stores/settings";
+import { useUserPreferencesStore } from "@/stores/userPreferences";
 import { useAppStore } from "@/stores/app";
 import { allModules } from "@/modules/registry";
 import type { ModuleID } from "@/modules/types";
@@ -23,9 +24,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -37,28 +36,29 @@ import { Switch } from '@/components/ui/switch'
 import { toast } from "vue-sonner";
 import { Label } from '@/components/ui/label'
 
-const settingsStore = useSettingsStore();
+const preferencesStore = useUserPreferencesStore();
 const appStore = useAppStore();
 const { t } = useI18n();
 const saving = ref(false);
 
 const formSchema = toTypedSchema(generalSettingsSchema);
 
+
+// ... imports ...
+
 // Initial values computed from store
 const initialValues = computed(() => {
-  if (settingsStore.settings) {
+  if (preferencesStore.preferences) {
     return {
-      currency: settingsStore.settings.currency,
-      defaultTaxRate: settingsStore.settings.defaultTaxRate,
-      language: settingsStore.settings.language,
-      theme: settingsStore.settings.theme,
-      dateFormat: settingsStore.settings.dateFormat,
-      timezone: settingsStore.settings.timezone,
+      currency: preferencesStore.preferences.currency,
+      language: preferencesStore.preferences.language,
+      theme: preferencesStore.preferences.theme,
+      dateFormat: preferencesStore.preferences.dateFormat,
+      timezone: preferencesStore.preferences.timezone,
     };
   }
   return {
     currency: "USD",
-    defaultTaxRate: 0,
     language: "en-US",
     theme: "light",
     dateFormat: "2006-01-02",
@@ -103,9 +103,12 @@ const toggleableModules = computed<{ id: ModuleID; labelKey: string }[]>(() => {
     .filter((m) => m.nav)
     .map((m) => ({ id: m.id, labelKey: m.nav!.labelKey }));
 });
+// ... (options definitions remain same, but I need to removing tax rate logic)
+
+// ...
 
 function isModuleEnabled(moduleID: ModuleID): boolean {
-  const overrides = settingsStore.settings?.moduleOverrides;
+  const overrides = preferencesStore.preferences?.moduleOverrides;
   if (overrides && overrides[moduleID] !== undefined) {
     return overrides[moduleID] === true;
   }
@@ -114,15 +117,18 @@ function isModuleEnabled(moduleID: ModuleID): boolean {
 }
 
 async function setModuleEnabled(moduleID: ModuleID, enabled: boolean) {
-  const currentSettings = settingsStore.settings;
-  if (!currentSettings) {
+  const currentPreferences = preferencesStore.preferences;
+  if (!currentPreferences) {
     toast.error(t("settings.general.messages.loadError"));
     return;
   }
-  const nextOverrides = { ...currentSettings.moduleOverrides, [moduleID]: enabled };
+  const nextOverrides = { ...currentPreferences.moduleOverrides, [moduleID]: enabled };
 
   try {
-    await settingsStore.saveSettings({ ...currentSettings, moduleOverrides: nextOverrides });
+    await preferencesStore.savePreferences(new dto.UserPreferences({
+       ...currentPreferences,
+       moduleOverrides: nextOverrides 
+    }));
     toast.success(t("settings.general.modules.messages.restartRequired"));
     // Revert visual state if needed, though reactivity handles it
   } catch (e) {
@@ -131,23 +137,27 @@ async function setModuleEnabled(moduleID: ModuleID, enabled: boolean) {
 }
 
 onMounted(async () => {
-  await settingsStore.fetchSettings();
+  await preferencesStore.fetchPreferences();
 });
 
 async function onSubmit(formValues: unknown) {
-  const values = formValues as any; // Using any here to match simpler refactor for now, can be stricter later
+  const values = formValues as any; 
   saving.value = true;
   try {
-    const currentSettings = settingsStore.settings;
-    if (!currentSettings) {
+    const currentPreferences = preferencesStore.preferences;
+    if (!currentPreferences) {
       toast.error(t("settings.general.messages.loadError"));
       return;
     }
-    const updatedSettings = {
-      ...currentSettings,
-      ...values,
-    };
-    await settingsStore.saveSettings(updatedSettings);
+    // Filter out fields that are not in UserPreferences (e.g. defaultTaxRate if it's still in formValues)
+    const { defaultTaxRate, ...prefValues } = values;
+
+    const updatedPreferences = new dto.UserPreferences({
+      ...currentPreferences,
+      ...prefValues,
+    });
+    
+    await preferencesStore.savePreferences(updatedPreferences);
     toast.success(t("settings.general.messages.saved"));
   } catch (e) {
     toast.error(e instanceof Error ? e.message : t("settings.general.messages.saveError"));
@@ -201,20 +211,6 @@ function handleLanguageChange(value: any, setFieldValue: (field: string, value: 
               </FormItem>
             </FormField>
 
-            <!-- Tax Rate -->
-            <FormField v-slot="{ componentField }" name="defaultTaxRate">
-              <FormItem>
-                <FormLabel>{{ t('settings.general.fields.defaultTaxRate') }}</FormLabel>
-                <FormControl>
-                  <Input type="number" v-bind="componentField" :min="0" :max="1" :step="0.01" :disabled="saving"
-                    @input="(e: Event) => setFieldValue('defaultTaxRate', parseFloat((e.target as HTMLInputElement).value))" />
-                </FormControl>
-                <FormDescription>
-                  {{ t("settings.general.hints.taxRate") }}
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            </FormField>
 
             <!-- Date Format -->
             <FormField v-slot="{ componentField }" name="dateFormat">

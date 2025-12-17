@@ -91,7 +91,7 @@ onMounted(() => {
           <Card class="hover:shadow-md transition-shadow">
             <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle class="text-sm font-medium">
-                {{ t('finance.summary.totalExpenses') }}
+                {{ t('finance.summary.totalExpense') }}
               </CardTitle>
               <div class="icon-box p-2 rounded-md bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
                 <TrendingDown class="w-4 h-4" />

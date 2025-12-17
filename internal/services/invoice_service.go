@@ -7,15 +7,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/smtp"
+	"os"
+	"strings"
 	"tally/internal/dto"
 	"tally/internal/mapper"
 	"tally/internal/models"
 	"tally/internal/pdf"
 	"tally/internal/utils"
-	"log"
-	"net/smtp"
-	"os"
-	"strings"
 
 	"github.com/resend/resend-go/v3"
 )
@@ -429,17 +429,44 @@ func (s *InvoiceService) getClient(userID int, clientID int) (models.Client, err
 	return c, nil
 }
 
-// getUserSettings loads settings_json for a user.
+// getUserSettings loads settings from the new dedicated tables (preferences, tax, invoice).
 func (s *InvoiceService) getUserSettings(userID int) (models.UserSettings, error) {
-	raw := "{}"
-	if err := s.db.QueryRow("SELECT settings_json FROM users WHERE id = ?", userID).Scan(&raw); err != nil {
-		return defaultUserSettings(), err
-	}
-	settings := defaultUserSettings()
-	if err := json.Unmarshal([]byte(raw), &settings); err != nil {
-		return defaultUserSettings(), err
-	}
-	return normalizeUserSettings(settings), nil
+	prefsSvc := NewUserPreferencesService(s.db)
+	taxSvc := NewUserTaxSettingsService(s.db)
+	invSvc := NewUserInvoiceSettingsService(s.db)
+
+	// Fetch all settings (ignoring errors as services return defaults on error)
+	prefs, _ := prefsSvc.Get(userID)
+	tax, _ := taxSvc.Get(userID)
+	inv, _ := invSvc.Get(userID)
+
+	// Aggregate into legacy model
+	return models.UserSettings{
+		// Preferences
+		Currency:        prefs.Currency,
+		Language:        prefs.Language,
+		Theme:           prefs.Theme,
+		Timezone:        prefs.Timezone,
+		DateFormat:      prefs.DateFormat,
+		ModuleOverrides: prefs.ModuleOverrides,
+
+		// Tax
+		HstRegistered:  tax.HstRegistered,
+		HstNumber:      tax.HstNumber,
+		TaxEnabled:     tax.TaxEnabled,
+		DefaultTaxRate: tax.DefaultTaxRate,
+		ExpectedIncome: tax.ExpectedIncome,
+
+		// Invoice & Sender
+		SenderName:             inv.SenderName,
+		SenderCompany:          inv.SenderCompany,
+		SenderAddress:          inv.SenderAddress,
+		SenderPhone:            inv.SenderPhone,
+		SenderEmail:            inv.SenderEmail,
+		SenderPostalCode:       inv.SenderPostalCode,
+		InvoiceTerms:           inv.DefaultTerms,
+		DefaultMessageTemplate: inv.DefaultMessageTemplate,
+	}, nil
 }
 
 // buildDefaultMessage generates a fallback MESSAGE block based on time entries.

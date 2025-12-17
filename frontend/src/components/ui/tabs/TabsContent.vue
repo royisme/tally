@@ -13,7 +13,10 @@ const delegatedProps = reactiveOmit(props, "class")
 <template>
   <TabsContent
     data-slot="tabs-content"
-    :class="cn('flex-1 outline-none', props.class)"
+    :class="cn(
+      'flex-1 outline-none ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 data-[state=inactive]:hidden',
+      props.class,
+    )"
     v-bind="delegatedProps"
   >
     <slot />

@@ -1,7 +1,6 @@
 package services
 
 import (
-	"encoding/json"
 	"tally/internal/dto"
 	"testing"
 )
@@ -86,17 +85,23 @@ func TestSettingsService_UpdateNormalizesAndPersists(t *testing.T) {
 		t.Errorf("expected timezone preserved, got %q", updated.Timezone)
 	}
 
-	// Verify persisted JSON round-trip.
-	raw := "{}"
-	if err := db.QueryRow("SELECT settings_json FROM users WHERE id = ?", user.ID).Scan(&raw); err != nil {
-		t.Fatalf("failed to load settings_json: %v", err)
+	// Verify persisted data in new tables.
+	// Check Invoice Settings
+	var senderName string
+	if err := db.QueryRow("SELECT sender_name FROM user_invoice_settings WHERE user_id = ?", user.ID).Scan(&senderName); err != nil {
+		t.Fatalf("failed to load user_invoice_settings: %v", err)
 	}
-	var stored dto.UserSettings
-	if err := json.Unmarshal([]byte(raw), &stored); err != nil {
-		t.Fatalf("failed to unmarshal stored settings: %v", err)
+	if senderName != "Alice" {
+		t.Errorf("unexpected stored sender name: %q", senderName)
 	}
-	if stored.SenderName != "Alice" || stored.Timezone != "Asia/Shanghai" {
-		t.Errorf("unexpected stored settings: %+v", stored)
+
+	// Check Preferences
+	var timezone string
+	if err := db.QueryRow("SELECT timezone FROM user_preferences WHERE user_id = ?", user.ID).Scan(&timezone); err != nil {
+		t.Fatalf("failed to load user_preferences: %v", err)
+	}
+	if timezone != "Asia/Shanghai" {
+		t.Errorf("unexpected stored timezone: %q", timezone)
 	}
 }
 

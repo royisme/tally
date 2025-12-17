@@ -3,7 +3,7 @@ import { useAuthStore } from "@/stores/auth";
 import { allModules } from "@/modules/registry";
 import { toRouteRecordRaw } from "@/modules/types";
 import type { ModuleID } from "@/modules/types";
-import { useSettingsStore } from "@/stores/settings";
+import { useUserPreferencesStore } from "@/stores/userPreferences";
 import {
   isModuleIDEnabled,
   normalizeModuleOverrides,
@@ -56,7 +56,7 @@ router.afterEach((to) => {
 // Navigation guard
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore();
-  const settingsStore = useSettingsStore();
+  const preferencesStore = useUserPreferencesStore();
 
   // If route requires auth and user is not authenticated
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
@@ -83,7 +83,7 @@ router.beforeEach((to, _from, next) => {
 
     if (to.meta.requiresAuth && moduleID) {
       const overrides = normalizeModuleOverrides(
-        settingsStore.settings?.moduleOverrides
+        preferencesStore.preferences?.moduleOverrides
       );
       if (!isModuleIDEnabled(moduleID, overrides)) {
         next("/dashboard");

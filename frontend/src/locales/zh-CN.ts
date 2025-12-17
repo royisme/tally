@@ -753,7 +753,7 @@ export default {
       headerCardTitle: "发票抬头",
       fields: {
         invoiceTerms: "发票条款",
-        defaultMessageTemplate: "默认邮件模板",
+        defaultMessageTemplate: "默认发票备注",
         senderName: "发件人姓名",
         senderCompany: "发件人公司",
         senderAddress: "发件人地址",
@@ -768,6 +768,7 @@ export default {
       messages: {
         saved: "已保存发票设置",
         saveError: "保存设置失败",
+        loadError: "加载设置失败",
       },
       hst: {
         cardTitle: "税务设置（HST/GST）",
@@ -800,6 +801,7 @@ export default {
       title: "邮件",
       description: "邮件提供商设置和模板",
       providerCardTitle: "邮件服务",
+      templateCardTitle: "模板",
       resendCardTitle: "Resend 配置",
       resendDomainTip:
         "注意：使用 Resend 时，您必须在 Resend 仪表盘中验证您的域名。只能使用已验证域名的邮箱作为发件人（如 billing{'@'}yourdomain.com）。如果用于测试，可使用 onboarding{'@'}resend.dev（仅能发送给自己）。",

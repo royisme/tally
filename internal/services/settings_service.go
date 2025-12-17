@@ -2,8 +2,6 @@ package services
 
 import (
 	"database/sql"
-	"encoding/json"
-	"log"
 	"strings"
 	"tally/internal/dto"
 	"tally/internal/mapper"
@@ -20,43 +18,98 @@ func NewSettingsService(db *sql.DB) *SettingsService {
 	return &SettingsService{db: db}
 }
 
-// Get returns normalized user settings.
+// Get returns normalized user settings by aggregating from new tables.
 func (s *SettingsService) Get(userID int) dto.UserSettings {
-	raw := "{}"
-	err := s.db.QueryRow("SELECT settings_json FROM users WHERE id = ?", userID).Scan(&raw)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// This is expected for new users or fresh installs
-			return mapper.ToUserSettingsDTO(defaultUserSettings())
-		}
-		log.Println("Error fetching user settings:", err)
-		return mapper.ToUserSettingsDTO(defaultUserSettings())
+	prefsSvc := NewUserPreferencesService(s.db)
+	taxSvc := NewUserTaxSettingsService(s.db)
+	invSvc := NewUserInvoiceSettingsService(s.db)
+
+	prefs, _ := prefsSvc.Get(userID)
+	tax, _ := taxSvc.Get(userID)
+	inv, _ := invSvc.Get(userID)
+
+	// Combine into DTO
+	return dto.UserSettings{
+		// Preferences
+		Currency:        prefs.Currency,
+		Language:        prefs.Language,
+		Theme:           prefs.Theme,
+		Timezone:        prefs.Timezone,
+		DateFormat:      prefs.DateFormat,
+		ModuleOverrides: prefs.ModuleOverrides,
+
+		// Tax
+		HstRegistered:  tax.HstRegistered,
+		HstNumber:      tax.HstNumber,
+		TaxEnabled:     tax.TaxEnabled,
+		DefaultTaxRate: tax.DefaultTaxRate,
+		ExpectedIncome: tax.ExpectedIncome,
+
+		// Invoice
+		SenderName:             inv.SenderName,
+		SenderCompany:          inv.SenderCompany,
+		SenderAddress:          inv.SenderAddress,
+		SenderPhone:            inv.SenderPhone,
+		SenderEmail:            inv.SenderEmail,
+		SenderPostalCode:       inv.SenderPostalCode,
+		InvoiceTerms:           inv.DefaultTerms,
+		DefaultMessageTemplate: inv.DefaultMessageTemplate,
 	}
-	settings := defaultUserSettings()
-	if err := json.Unmarshal([]byte(raw), &settings); err != nil {
-		log.Println("Error parsing settings_json, using defaults:", err)
-	}
-	normalized := normalizeUserSettings(settings)
-	return mapper.ToUserSettingsDTO(normalized)
 }
 
-// Update persists settings_json and returns normalized result.
+// Update distributes settings to the new tables.
 func (s *SettingsService) Update(userID int, input dto.UserSettings) (dto.UserSettings, error) {
-	modelSettings := mapper.ToUserSettingsModel(input)
-	normalized := normalizeUserSettings(modelSettings)
-	payload, err := json.Marshal(normalized)
+	// Normalize input first (to maintain legacy behavior like trimming)
+	modelInput := mapper.ToUserSettingsModel(input)
+	normalized := normalizeUserSettings(modelInput)
+
+	// Use normalized values for update
+	prefsSvc := NewUserPreferencesService(s.db)
+	taxSvc := NewUserTaxSettingsService(s.db)
+	invSvc := NewUserInvoiceSettingsService(s.db)
+
+	// 1. Update Preferences
+	_, err := prefsSvc.Update(userID, dto.UserPreferences{
+		Currency:        normalized.Currency,
+		Language:        normalized.Language,
+		Theme:           normalized.Theme,
+		Timezone:        normalized.Timezone,
+		DateFormat:      normalized.DateFormat,
+		ModuleOverrides: normalized.ModuleOverrides,
+	})
 	if err != nil {
-		log.Println("Error marshaling settings:", err)
-		return mapper.ToUserSettingsDTO(normalized), err
+		return dto.UserSettings{}, err
 	}
 
-	_, err = s.db.Exec("UPDATE users SET settings_json = ? WHERE id = ?", string(payload), userID)
+	// 2. Update Tax
+	_, err = taxSvc.Update(userID, dto.UserTaxSettings{
+		HstRegistered:  normalized.HstRegistered,
+		HstNumber:      normalized.HstNumber,
+		TaxEnabled:     normalized.TaxEnabled,
+		DefaultTaxRate: normalized.DefaultTaxRate,
+		ExpectedIncome: normalized.ExpectedIncome,
+	})
 	if err != nil {
-		log.Println("Error updating settings_json:", err)
-		return mapper.ToUserSettingsDTO(normalized), err
+		return dto.UserSettings{}, err
 	}
 
-	return mapper.ToUserSettingsDTO(normalized), nil
+	// 3. Update Invoice Settings
+	_, err = invSvc.Update(userID, dto.UserInvoiceSettings{
+		SenderName:             normalized.SenderName,
+		SenderCompany:          normalized.SenderCompany,
+		SenderAddress:          normalized.SenderAddress,
+		SenderPhone:            normalized.SenderPhone,
+		SenderEmail:            normalized.SenderEmail,
+		SenderPostalCode:       normalized.SenderPostalCode,
+		DefaultTerms:           normalized.InvoiceTerms,
+		DefaultMessageTemplate: normalized.DefaultMessageTemplate,
+	})
+	if err != nil {
+		return dto.UserSettings{}, err
+	}
+
+	// Return updated state
+	return s.Get(userID), nil
 }
 
 // normalizeUserSettings fills defaults and trims spaces.

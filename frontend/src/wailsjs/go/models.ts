@@ -712,6 +712,34 @@ export namespace dto {
 	        this.settingsJson = source["settingsJson"];
 	    }
 	}
+	export class UserInvoiceSettings {
+	    userId: number;
+	    senderName: string;
+	    senderCompany: string;
+	    senderAddress: string;
+	    senderPhone: string;
+	    senderEmail: string;
+	    senderPostalCode: string;
+	    defaultTerms: string;
+	    defaultMessageTemplate: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UserInvoiceSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.userId = source["userId"];
+	        this.senderName = source["senderName"];
+	        this.senderCompany = source["senderCompany"];
+	        this.senderAddress = source["senderAddress"];
+	        this.senderPhone = source["senderPhone"];
+	        this.senderEmail = source["senderEmail"];
+	        this.senderPostalCode = source["senderPostalCode"];
+	        this.defaultTerms = source["defaultTerms"];
+	        this.defaultMessageTemplate = source["defaultMessageTemplate"];
+	    }
+	}
 	export class UserListItem {
 	    id: number;
 	    username: string;
@@ -752,6 +780,30 @@ export namespace dto {
 	        this.createdAt = source["createdAt"];
 	        this.lastLogin = source["lastLogin"];
 	        this.settingsJson = source["settingsJson"];
+	    }
+	}
+	export class UserPreferences {
+	    userId: number;
+	    currency: string;
+	    language: string;
+	    theme: string;
+	    timezone: string;
+	    dateFormat: string;
+	    moduleOverrides?: Record<string, boolean>;
+	
+	    static createFrom(source: any = {}) {
+	        return new UserPreferences(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.userId = source["userId"];
+	        this.currency = source["currency"];
+	        this.language = source["language"];
+	        this.theme = source["theme"];
+	        this.timezone = source["timezone"];
+	        this.dateFormat = source["dateFormat"];
+	        this.moduleOverrides = source["moduleOverrides"];
 	    }
 	}
 	export class UserSettings {
@@ -799,6 +851,28 @@ export namespace dto {
 	        this.hstRegistered = source["hstRegistered"];
 	        this.hstNumber = source["hstNumber"];
 	        this.taxEnabled = source["taxEnabled"];
+	        this.expectedIncome = source["expectedIncome"];
+	    }
+	}
+	export class UserTaxSettings {
+	    userId: number;
+	    hstRegistered: boolean;
+	    hstNumber: string;
+	    taxEnabled: boolean;
+	    defaultTaxRate: number;
+	    expectedIncome: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UserTaxSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.userId = source["userId"];
+	        this.hstRegistered = source["hstRegistered"];
+	        this.hstNumber = source["hstNumber"];
+	        this.taxEnabled = source["taxEnabled"];
+	        this.defaultTaxRate = source["defaultTaxRate"];
 	        this.expectedIncome = source["expectedIncome"];
 	    }
 	}

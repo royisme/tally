@@ -211,46 +211,54 @@ function getInitials(username: string): string {
         <Separator class="my-6" />
 
         <!-- Password Form -->
-        <h3 class="text-lg font-semibold mb-4">{{ t("settings.profile.password.title") }}</h3>
-        <Form :validation-schema="passwordFormSchema" @submit="onPasswordSubmit">
-          <div class="max-w-md space-y-4">
-            <FormField v-slot="{ componentField }" name="oldPassword">
-              <FormItem>
-                <FormLabel>{{ t("settings.profile.password.current") }}</FormLabel>
-                <FormControl>
-                  <Input type="password" v-bind="componentField" :disabled="accountSaving" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
+        <h3 class="leading-none font-semibold mb-4">
+          {{ t("settings.profile.password.title") }}
+        </h3>
 
-            <FormField v-slot="{ componentField }" name="newPassword">
-              <FormItem>
-                <FormLabel>{{ t("settings.profile.password.new") }}</FormLabel>
-                <FormControl>
-                  <Input type="password" v-bind="componentField" :disabled="accountSaving" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
+        <div class="flex gap-12 items-start">
+          <div class="min-w-[160px]" />
+          <div class="grow max-w-md">
+            <Form :validation-schema="passwordFormSchema" class="w-full" @submit="onPasswordSubmit">
+              <div class="space-y-4">
+                <FormField v-slot="{ componentField }" name="oldPassword">
+                  <FormItem>
+                    <FormLabel>{{ t("settings.profile.password.current") }}</FormLabel>
+                    <FormControl>
+                      <Input type="password" v-bind="componentField" :disabled="accountSaving" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
 
-            <FormField v-slot="{ componentField }" name="confirmPassword">
-              <FormItem>
-                <FormLabel>{{ t("settings.profile.password.confirm") }}</FormLabel>
-                <FormControl>
-                  <Input type="password" v-bind="componentField" :disabled="accountSaving" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
+                <FormField v-slot="{ componentField }" name="newPassword">
+                  <FormItem>
+                    <FormLabel>{{ t("settings.profile.password.new") }}</FormLabel>
+                    <FormControl>
+                      <Input type="password" v-bind="componentField" :disabled="accountSaving" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
 
-            <div class="flex justify-end pt-2">
-              <Button type="submit" variant="destructive" :disabled="accountSaving">
-                {{ t("settings.profile.password.changeButton") }}
-              </Button>
-            </div>
+                <FormField v-slot="{ componentField }" name="confirmPassword">
+                  <FormItem>
+                    <FormLabel>{{ t("settings.profile.password.confirm") }}</FormLabel>
+                    <FormControl>
+                      <Input type="password" v-bind="componentField" :disabled="accountSaving" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                </FormField>
+
+                <div class="flex justify-end pt-2">
+                  <Button type="submit" :disabled="accountSaving">
+                    {{ t("settings.profile.password.changeButton") }}
+                  </Button>
+                </div>
+              </div>
+            </Form>
           </div>
-        </Form>
+        </div>
       </CardContent>
     </Card>
   </div>

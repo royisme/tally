@@ -33,6 +33,9 @@ func main() {
 	updateService := services.NewUpdateService()
 	settingsService := services.NewSettingsService(dbConn)
 	invoiceEmailSettingsService := services.NewInvoiceEmailSettingsService(dbConn)
+	userPreferencesService := services.NewUserPreferencesService(dbConn)
+	userTaxSettingsService := services.NewUserTaxSettingsService(dbConn)
+	userInvoiceSettingsService := services.NewUserInvoiceSettingsService(dbConn)
 	reportService := services.NewReportService(dbConn)
 	statusBarService := services.NewStatusBarService(dbConn)
 	servicesDuration := time.Since(servicesStart)
@@ -66,6 +69,9 @@ func main() {
 			updateService,
 			settingsService,
 			invoiceEmailSettingsService,
+			userPreferencesService,
+			userTaxSettingsService,
+			userInvoiceSettingsService,
 			reportService,
 			statusBarService,
 		},

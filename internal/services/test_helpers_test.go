@@ -95,6 +95,40 @@ func setupFullTestDB(t *testing.T) *sql.DB {
 			FOREIGN KEY(user_id) REFERENCES users(id),
 			FOREIGN KEY(client_id) REFERENCES clients(id)
 		);`,
+		`CREATE TABLE user_preferences (
+			user_id INTEGER PRIMARY KEY,
+			currency TEXT DEFAULT 'USD',
+			language TEXT DEFAULT 'en-US',
+			theme TEXT DEFAULT 'light',
+			timezone TEXT DEFAULT 'UTC',
+			date_format TEXT DEFAULT '2006-01-02',
+			module_overrides_json TEXT DEFAULT '{}',
+			updated_at TEXT DEFAULT (datetime('now')),
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE user_tax_settings (
+			user_id INTEGER PRIMARY KEY,
+			hst_registered INTEGER DEFAULT 0,
+			hst_number TEXT,
+			tax_enabled INTEGER DEFAULT 0,
+			default_tax_rate REAL DEFAULT 0,
+			expected_income TEXT,
+			updated_at TEXT DEFAULT (datetime('now')),
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE user_invoice_settings (
+			user_id INTEGER PRIMARY KEY,
+			sender_name TEXT,
+			sender_company TEXT,
+			sender_address TEXT,
+			sender_phone TEXT,
+			sender_email TEXT,
+			sender_postal_code TEXT,
+			default_terms TEXT DEFAULT 'Due upon receipt',
+			default_message_template TEXT DEFAULT 'Thank you for your business.',
+			updated_at TEXT DEFAULT (datetime('now')),
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
 	}
 
 	for _, query := range queries {

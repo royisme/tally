@@ -757,7 +757,7 @@ export default {
       headerCardTitle: "Invoice Header",
       fields: {
         invoiceTerms: "Invoice Terms",
-        defaultMessageTemplate: "Default Message Template",
+        defaultMessageTemplate: "Default Invoice Note",
         senderName: "Sender Name",
         senderCompany: "Sender Company",
         senderAddress: "Sender Address",
@@ -772,6 +772,7 @@ export default {
       messages: {
         saved: "Saved invoice settings",
         saveError: "Failed to save settings",
+        loadError: "Failed to load settings",
       },
       hst: {
         cardTitle: "Tax Settings (HST/GST)",
@@ -804,6 +805,7 @@ export default {
       title: "Email",
       description: "Email provider settings and templates",
       providerCardTitle: "Email Provider",
+      templateCardTitle: "Templates",
       resendCardTitle: "Resend Configuration",
       resendDomainTip:
         "Note: You must verify your domain in the Resend dashboard. Only emails from verified domains (e.g., billing{'@'}yourdomain.com) are allowed. For testing, you can use onboarding{'@'}resend.dev (sends to yourself only).",

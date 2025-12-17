@@ -82,36 +82,34 @@ onMounted(() => {
         <h2 class="text-lg font-semibold tracking-tight">{{ t('dashboard.recentActivity.title') }}</h2>
       </div>
 
-      <Card class="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <CardContent class="flex-1 min-h-0 p-0 overflow-auto">
-          <div class="p-4 space-y-1">
-            <template v-if="store.recentActivities.length > 0">
-              <div v-for="activity in store.recentActivities" :key="activity.id"
-                class="group flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
-                <div
-                  class="h-9 w-9 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center shrink-0">
-                  <Clock class="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" />
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center justify-between">
-                    <p class="font-medium truncate">{{ activity.project }}</p>
-                    <span
-                      class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap">
-                      {{ t('dashboard.recentActivity.hoursLabel', { hours: activity.hours }) }}
-                    </span>
-                  </div>
-                  <p class="text-sm text-muted-foreground truncate">{{ activity.date }} · {{ activity.description }}</p>
-                </div>
+      <div class="flex-1 min-h-0 overflow-auto">
+        <div class="space-y-1">
+          <template v-if="store.recentActivities.length > 0">
+            <div v-for="activity in store.recentActivities" :key="activity.id"
+              class="group flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
+              <div
+                class="h-9 w-9 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center shrink-0">
+                <Clock class="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" />
               </div>
-            </template>
-
-            <div v-else class="flex flex-col items-center justify-center text-muted-foreground p-8">
-              <Calendar class="h-12 w-12 mb-4 opacity-20" />
-              <p>{{ t('dashboard.recentActivity.empty') }}</p>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <p class="font-medium truncate">{{ activity.project }}</p>
+                  <span
+                    class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap">
+                    {{ t('dashboard.recentActivity.hoursLabel', { hours: activity.hours }) }}
+                  </span>
+                </div>
+                <p class="text-sm text-muted-foreground truncate">{{ activity.date }} · {{ activity.description }}</p>
+              </div>
             </div>
+          </template>
+
+          <div v-else class="flex flex-col items-center justify-center text-muted-foreground p-8">
+            <Calendar class="h-12 w-12 mb-4 opacity-20" />
+            <p>{{ t('dashboard.recentActivity.empty') }}</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   </div>
 </template>

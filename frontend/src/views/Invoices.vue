@@ -269,7 +269,7 @@ function formatCurrency(value: number) {
     </div>
 
     <!-- Table Section -->
-    <div class="flex-1 min-h-0 bg-card rounded-2xl p-4 shadow-sm border flex flex-col overflow-hidden">
+    <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
       <!-- Search and Filter Bar -->
       <div class="shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
         <div class="relative max-w-sm w-full">

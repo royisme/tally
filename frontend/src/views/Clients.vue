@@ -248,7 +248,7 @@ const columns: ColumnDef<TreeRow>[] = [
     </div>
 
     <!-- Content -->
-    <div class="flex-1 min-h-0 border rounded-xl bg-card text-card-foreground shadow-sm overflow-hidden">
+    <div class="flex-1 min-h-0 overflow-hidden">
       <DataTable :columns="columns" :data="treeData" :loading="loading" :get-sub-rows="(row) => row.children" />
     </div>
 

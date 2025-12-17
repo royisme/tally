@@ -4,7 +4,7 @@ import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
+
 import { DataTable, DataTableColumnHeader } from '@/components/ui/data-table'
 import {
   AlertDialog,
@@ -233,41 +233,35 @@ onMounted(() => {
 
 
     <!-- Time Entries Section -->
-    <Card class="flex-1 min-h-0 flex flex-col overflow-hidden">
+    <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
       <!-- Section Header -->
-      <CardHeader class="shrink-0">
-        <div class="section-header flex justify-between items-center">
-          <h3 class="text-lg font-semibold">{{ t('timesheet.entries.title') }}</h3>
-          <Button variant="ghost" size="sm" @click="handleExportCSV">
-            <Download class="w-4 h-4 mr-2" />
-            {{ t('timesheet.entries.exportCSV') }}
-          </Button>
-        </div>
-      </CardHeader>
+      <div class="shrink-0 flex justify-between items-center mb-2">
+        <h3 class="text-lg font-semibold">{{ t('timesheet.entries.title') }}</h3>
+        <Button variant="ghost" size="sm" @click="handleExportCSV">
+          <Download class="w-4 h-4 mr-2" />
+          {{ t('timesheet.entries.exportCSV') }}
+        </Button>
+      </div>
 
-      <CardContent class="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <!-- Quick Entry Bar -->
-        <QuickTimeEntry :projects="projects" @submit="handleQuickEntry" class="shrink-0" />
+      <!-- Quick Entry Bar -->
+      <QuickTimeEntry :projects="projects" @submit="handleQuickEntry" class="shrink-0 mb-4" />
 
-        <!-- Data Table -->
-        <div v-if="loading" class="loading-state mt-4 flex items-center justify-center p-4">
-          <Loader2 class="w-6 h-6 animate-spin text-muted-foreground" />
-        </div>
+      <!-- Data Table -->
+      <div v-if="loading" class="flex-1 flex items-center justify-center">
+        <Loader2 class="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
 
-        <div v-else-if="entries.length === 0"
-          class="empty-state mt-4 flex flex-col items-center justify-center p-8 border rounded-lg bg-muted/20">
-          <Clock class="w-12 h-12 text-muted-foreground mb-4" />
-          <p class="text-muted-foreground">{{ t('timesheet.noEntries') }}</p>
-          <p class="text-xs text-muted-foreground mt-1">{{ t('timesheet.noEntriesHint') }}</p>
-        </div>
+      <div v-else-if="entries.length === 0"
+        class="flex-1 flex flex-col items-center justify-center border rounded-lg bg-muted/20">
+        <Clock class="w-12 h-12 text-muted-foreground mb-4" />
+        <p class="text-muted-foreground">{{ t('timesheet.noEntries') }}</p>
+        <p class="text-xs text-muted-foreground mt-1">{{ t('timesheet.noEntriesHint') }}</p>
+      </div>
 
-        <template v-else>
-          <div class="flex-1 min-h-0 rounded-md border mt-4 overflow-hidden">
-            <DataTable :columns="columns" :data="enrichedEntries" />
-          </div>
-        </template>
-      </CardContent>
-    </Card>
+      <div v-else class="flex-1 min-h-0 overflow-hidden">
+        <DataTable :columns="columns" :data="enrichedEntries" />
+      </div>
+    </div>
 
   </PageContainer>
 </template>

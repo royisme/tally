@@ -187,7 +187,7 @@ const columns: ColumnDef<Project>[] = [
     <ProjectFormModal v-model:show="showModal" :project="editingProject" :clients="clients"
       @submit="handleSubmitProject" />
 
-    <div class="flex-1 min-h-0 border rounded-xl bg-card text-card-foreground shadow-sm overflow-hidden">
+    <div class="flex-1 min-h-0 overflow-hidden">
       <DataTable :columns="columns" :data="projects" />
     </div>
 

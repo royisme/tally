@@ -218,7 +218,7 @@ const totalPages = computed(() => {
             </div>
 
             <!-- shadcn Table replacing NDataTable -->
-            <Card v-else class="flex-1 overflow-auto">
+            <div v-else class="flex-1 min-h-0 overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -254,7 +254,7 @@ const totalPages = computed(() => {
                   </Button>
                 </div>
               </div>
-            </Card>
+            </div>
           </div>
         </template>
       </div>

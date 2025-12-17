@@ -123,7 +123,7 @@ async function setModuleEnabled(moduleID: ModuleID, enabled: boolean) {
 
   try {
     await settingsStore.saveSettings({ ...currentSettings, moduleOverrides: nextOverrides });
-    toast.success(t("settings.general.modules.messages.saved"));
+    toast.success(t("settings.general.modules.messages.restartRequired"));
     // Revert visual state if needed, though reactivity handles it
   } catch (e) {
     toast.error(e instanceof Error ? e.message : t("settings.general.modules.messages.saveError"));

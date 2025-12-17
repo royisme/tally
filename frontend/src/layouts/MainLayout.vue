@@ -11,7 +11,7 @@ import {
     Sun,
     Moon
 } from 'lucide-vue-next'
-import { allModules, isModuleEnabled, normalizeModuleOverrides } from '@/modules/registry'
+import { allModules, isModuleEnabled, isModuleIDEnabled, normalizeModuleOverrides } from '@/modules/registry'
 import type { ModuleNavItem } from '@/modules/types'
 import { Button } from '@/components/ui/button'
 import {
@@ -142,8 +142,21 @@ const configurationItems = computed<NavItem[]>(() => {
     const settingsModule = allModules.find((m) => m.id === 'settings')
     if (!settingsModule || !settingsModule.nav) return []
 
-    // Return the settings module nav item itself (which contains children)
-    return [toNavItem(settingsModule.nav)]
+    // 1. Get settings nav
+    // 2. Filter its children based on registry definition
+    const overrides = normalizeModuleOverrides(settingsStore.settings?.moduleOverrides)
+    const filteredChildren = settingsModule.nav.children?.filter(child => {
+        if (!child.moduleID) return true // Always show if no module ID
+        return isModuleIDEnabled(child.moduleID, overrides)
+    }) ?? []
+
+    // 3. Construct NavItem manually or helper
+    const navItem = toNavItem({
+        ...settingsModule.nav,
+        children: filteredChildren
+    })
+
+    return [navItem]
 })
 
 onMounted(() => {

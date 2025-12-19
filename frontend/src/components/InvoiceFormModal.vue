@@ -679,7 +679,7 @@ const allSelected = computed(() => {
               <TableHeader>
                 <TableRow>
                   <TableHead class="w-[50px]">
-                    <Checkbox :checked="allSelected" @update:checked="(value: boolean) => toggleAll(value)"
+                    <Checkbox :model-value="allSelected" @update:checked="(value: boolean) => toggleAll(value)"
                       :disabled="eligibleTimeEntries.length === 0" />
                   </TableHead>
                   <TableHead class="w-[160px]">{{ t('invoices.selectEntries.columns.date') }}</TableHead>
@@ -701,7 +701,7 @@ const allSelected = computed(() => {
                 <template v-else>
                   <TableRow v-for="entry in eligibleTimeEntries" :key="entry.id">
                     <TableCell>
-                      <Checkbox :checked="isSelected(entry.id)"
+                      <Checkbox :model-value="isSelected(entry.id)"
                         @update:checked="(value: boolean) => toggleSelection(entry.id, value)" />
                     </TableCell>
                     <TableCell>{{ entry.date }}</TableCell>
@@ -736,7 +736,7 @@ const allSelected = computed(() => {
             <div class="flex items-center gap-4">
               <span class="text-muted-foreground">{{ t('invoices.form.taxAmount') }}</span>
               <span class="font-medium min-w-[80px] text-right">${{ form.values.taxAmount?.toFixed(2) || '0.00'
-                }}</span>
+              }}</span>
             </div>
           </div>
 
